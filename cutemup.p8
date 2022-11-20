@@ -1,0 +1,1224 @@
+pico-8 cartridge // http://www.pico-8.com
+version 38
+__lua__
+-- game info and credits
+
+-->8
+-- game loop
+
+function _init()
+	printh('~~~~~~~~PROG INIT~~~~~~')
+	menuitem(1,"Toggle Player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
+	init_scenes()
+	ai_steer_spd=0.070
+	max_ents=0
+	aroutines={}
+	routines={}
+	entities={}
+	camx=0
+	camy=0
+	map_cenx,map_ceny=120,120
+	s_w=128
+	init_players()
+	ents=2
+	add(routines, test)
+	switch_scene(scenes.stage1, true)
+end
+
+function _update60()
+	if (current_scene~=nil and current_scene.update~=nil) current_scene:update()
+	manage_routines()
+	for i, p in pairs(players) do
+		sys_ent__update_coll(p)
+		-- sys_ent__coll_check(p)
+	end
+end
+
+function _draw()
+    cls()
+	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
+	manage_routines(aroutines)
+	if (_cls) cls(1) 
+	print(#aroutines,camx+2,camy+2,8)
+	-- print(#players..' players: ')
+	print(players[1].mot.dx..","..players[1].mot.dy)
+	
+	-- if (testent~=nil) print(costatus(testent.behavior))
+	-- if midx~=nil then
+	-- 	print("midx: "..midx.." - midy: "..midy)
+	-- 	print("camx: "..camx.." - camy: "..camy)
+	-- end
+	-- for p in all(players) do
+	-- 	print(p.pid..' - '..ceil(p.pos.x)..'/'..ceil(p.pos.y).."#"..p.mot.dx.."/"..p.mot.dy.." : "..tostr(p.act))
+	-- end
+end
+
+-->8
+-- player functions
+
+function init_players()
+	players={}
+	for i=0,1 do
+		local p = create_ent("웃", i)
+		p.coll_box = cmpnt_new_coll_box(1, 0, 4, 4, player_collide)
+		add(players, p)
+	end
+end
+
+function player_collide(self, e)
+	-- if e~=nil then
+	-- 	printh('collided with '..e.pid)
+	-- else
+	-- 	printh('collided with unknown object')
+	-- end
+end
+
+function update_controls(p)
+	if (btn(4, p.pid)) printh('z button pressed')
+	if (btn(5, p.pid)) printh('x button pressed')
+end
+
+function tbl_dump(o)
+    if type(o) == 'table' then
+        -- printh('parsing table, length: '..#o)
+		local h,f='',''
+        local s = '{'
+        for k,v in pairs(o) do
+            -- printh(tostr(k).."/"..type(v))
+            if (type(k) == 'number') h='[' f=']'
+            s = s .. h..k..f..' = ' .. tbl_dump(v) .. ','
+        end
+        return s .. '}'
+    else
+		-- printh(tostr(o).."/"..type(o))
+		if (type(o)=="string") return '"'..o..'"'
+        return tostr(o)
+    end
+end
+
+-->8 
+-- entity ai functions
+function ai__rotate_to_target(e) 
+	local t = e.targ
+	local ex,ey = e.pos.x+e.pos.w/2, e.pos.y+e.pos.h/2
+	local tx,ty = t.pos.x+t.pos.w/2, t.pos.y+t.pos.h/2
+	-- angle code credits: https://www.gamedev.net/forums/topic/679527-rotate-towards-a-target-angle/ USER https://www.gamedev.net/draika-the-dragon/
+	local aim_ang=oaget(t,e)
+	local desiredanglem1=aim_ang-1
+	local desiredanglep1=aim_ang+1
+	
+	local dadiff=abs(aim_ang-e.mot.ang)
+	local dam1diff=abs(desiredanglem1-e.mot.ang)
+	local dap1diff=abs(desiredanglep1-e.mot.ang)
+	local closestuniverse=aim_ang
+	closestdifftozero=dadiff
+	if dam1diff<closestdifftozero then
+		closestdifftozero=dam1diff
+		closestuniverse=desiredanglem1
+	end
+	if dap1diff<closestdifftozero then
+		closestdifftozero=dap1diff
+		closestuniverse=dam1diff
+	end
+
+	
+	if closestuniverse>e.mot.ang+ai_steer_spd then
+		e.mot.ang+=ai_steer_spd
+	elseif closestuniverse<e.mot.ang-ai_steer_spd then
+		e.mot.ang-=ai_steer_spd
+	end
+
+
+	if (e.mot.ang>1) e.mot.ang=0
+	if (e.mot.ang<0) e.mot.ang=0.999
+
+end
+
+function create_testent(_x,_y)
+	local p = create_ent("!", ents, {
+		x=_x, --x
+		y=_y, --y,
+		w=6,
+		h=4
+	}, {
+		dx=0, --dx
+		dy=0, --dy,
+		-- a=0.2,
+		a=randbi(0.3,0.4),
+		mspd=0.4,
+		drg=0.9,
+		ang=0
+	}, cmpnt_new_coll_box(0, 0, 6, 4))
+	-- p.coll_box.coll_callback = function(cb, e) 
+	-- 	-- printh(tbl_dump(t))
+	-- 	if e.pid <2 then
+	-- 		-- printh('touching player')
+	-- 	else
+	-- 		-- printh('touching other enemy')
+	-- 		local tx,ty,ta
+	-- 		ta = oaget(p,e)
+	-- 		tx = e.pos.x+cos(ta)*8
+	-- 		ty = e.pos.y+sin(ta)*8
+	-- 		p.pos.x = tx
+	-- 		p.pos.y = ty
+	-- 	end
+	-- end
+	p.behavior=create_timer(function()
+		sys_ent__update_coll(p)
+		sys_ent__coll_check(p)
+		move_entity(p)
+		-- yield()
+		-- print(p.mot.dx..","..p.mot.dy, p.pos.x, p.pos.y-6,7)
+	end,1,true)
+	p.pathing = create_timer(function()
+		p.targ=ai__pick_player_target(p)
+		ai__rotate_to_target(p)
+		-- yield()
+		ai__path_to_players(p)
+		ai__move_to_target(p)
+	end,1,true)
+	add(aroutines, p.behavior)
+	add(aroutines, p.pathing)
+	add(entities, p)
+	ents+=1
+	return p
+end
+
+function ai__steer(e, d)
+	local sspd = ai_steer_spd
+	-- printh(sspd)
+	if d==-0.25 then
+		e.mot.a=e.mot.oa
+		e.mot.ang+=sspd
+		yield()
+	elseif d==0.25 then
+		e.mot.a=e.mot.oa
+		e.mot.ang-=sspd
+		yield()
+	end
+	
+	if (e.mot.ang>1) e.mot.ang=0
+	if (e.mot.ang<0) e.mot.ang=0.999
+	yield()
+
+end
+
+function ai__pick_player_target(e)
+	local p1, p2 = players[1], players[2]
+	local p1d, p2d = dst(e,p1), dst(e,p2)
+	local p1a, p2a = p1.act, p2.act
+	if (p1a and not p2a) return p1
+	if (p2a and not p1a) return p2
+	if (p1d<p2d) return p1
+	return p2
+end
+
+function ai__path_to_players(e)
+	local targ = e.targ -- target entity stored in source entity table
+	local tang = oaget(e, targ) -- angle from source to target
+	local tx, ty -- undefined local variables for temp x and y
+	local ang = e.mot.ang -- current path angle of source entity
+	local col=9 -- debug path color
+	for n=-0.25,0.25, 0.25 do -- draw 3 pixels. One in front, and one on each side
+		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*6) -- define x for current pixel
+		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*6) -- define y for current pixel
+		circfill(tx,ty,1,col)
+		yield() -- yield processing back to main loop
+		for i, ent in pairs(entities) do -- loop through entities to see if any are colliding with path pixel
+			if e.pid ~= ent.pid and ent.pid>1 then -- If the entity is another enemy, then continue
+				if sys_pos__coll_check(tx,ty, ent.coll_box) then -- if colliding with another enemy
+					if n==0 then -- if colliding enemy is in front, stop moving
+						e.mot.a=0
+						yield() -- yield processing back to main loop
+					end
+					ai__steer(e,n) -- steer function to avoid clumping of mobs
+					yield() -- yield processing back to main loop
+				else
+					e.mot.a=e.mot.oa -- if nothing is colliding, reset accelleration back to default. needs refactoring for stats!
+				end
+			end
+		end
+		yield() -- yield processing back to main loop
+	end
+end
+
+function ai__move_to_target(ent)
+	local tdst = dst(ent, ent.targ)
+	ent.mot.dx-=cos(ent.mot.ang)--*-(tdst+ent.mot.a)
+	ent.mot.dy-=sin(ent.mot.ang)--*-(tdst+ent.mot.a)
+	-- ent.mot.dx*=(ent.mot.a)
+	-- ent.mot.dy*=(ent.mot.a)
+end
+
+function create_ent(_char, _pid, _pos, _mot, _coll_box)
+	local e={
+		pid=_pid or 2,
+		header="",
+		char=_char or "モ",
+		col=7,
+		act=true,
+		pos = _pos or {
+			x=36, --x
+			y=36, --y,
+			w=15,
+			h=15
+		},
+		mot = _mot or {
+			dx=0, --dx
+			dy=0, --dy,
+			a=0.1,
+			mspd=0.5,
+			drg=0.9,
+			ang=0
+		},
+		coll_box = _coll_box or cmpnt_new_coll_box(1, 1, 5, 4, function()  end)
+
+	}
+	e.mot.oa=e.mot.a
+
+	add(entities, e)
+	return e
+end
+-->8
+-- scene functions
+
+function init_scenes()
+	_cls = true
+	scenes = {
+		title={
+			init=function()
+				add(aroutines,create_timer(function()
+					local y=-1
+					local flashing,c,s = false, 9,0
+					local tm=0
+					yields(15)
+					while true do
+						if (y<68) y+=2.5 
+						if y>=68 and stat(54)==-1 then
+							-- music(60)
+							if (tm<3)tm+=0.1
+						end
+						hor_wave_print("press 🅾️ /z to start!",21,y,c,tm,t(),1.2) 
+						if (btnp(4)) flashing = true
+						if flashing then
+							c+=0.2
+							s+=0.1
+							if (s>1.5) tm+=2
+							if (s>5) switch_scene(scenes.stage1) music(-1, 1000) break
+							if (c>11) c=9
+						end
+						yield()
+					end
+				end,1,true))
+			end,
+			draw=function()
+				map(32,0,0,0,16,16)
+			end
+		},
+		test_menu={
+			init=function()
+				add(aroutines,create_timer(function()
+					print('hey look a new scene')
+				end,1,true))
+				music(0)
+			end,
+			update=function()
+				if (btnp(4)) switch_scene(scenes.title) music(-1)
+			end
+		},
+		stage1={
+			init=init_stage1,
+			draw=draw_stage1,
+			update=function()
+				-- if (btnp(4)) switch_scene(scenes.test_menu) music(-1)
+				update_stage1()
+			end
+		}
+	}
+end
+
+function switch_scene(_scene, _t)
+	local n=create_timer(function()
+		local f,s
+		if not _t then
+			f,s = scene_fade()
+		end
+		while s=='suspended' do
+			s=costatus(f)
+			yield()
+		end
+		for i=1,#routines do
+			deli(routines, 1)
+		end
+		for i=1,#aroutines do
+			deli(aroutines, 1)
+		end
+		current_scene = _scene
+		
+		f,s = scene_fade(true,current_scene.init)
+		while s=='suspended' do
+			s=costatus(f)
+			yield()
+		end
+	end)
+	add(aroutines, n)
+end
+
+function scene_fade(_in, _cb)
+	local lin = _in or false
+	local cb = _cb or false
+    local g={}
+    local t = create_timer(function()
+        for y=0,8 do
+            for x=0,8 do
+                local c = create_timer(function()
+
+                    local r=0
+                    if (lin) r=16 
+                    while true do
+                        if not lin then
+                            r+=0.5
+                            if (r>16)r=16
+                        else
+                            r-=0.5
+                            if (r<0)r=0
+                        end
+                        circfill(camx+x*16,camy+y*16,r,1)
+                        yield()
+                    end
+                end,1) 
+                add(aroutines, c)
+                add(g, c)
+            end
+        end
+        yield()
+        if (lin) _cls=false 
+        yields(31)
+        for i, h in pairs(g) do
+            del(aroutines, h)
+        end
+		
+        if (not lin) _cls=true
+		if (cb) cb()
+    end)
+    add(aroutines, t)
+	return t, costatus(t)
+end
+
+-->8
+-- animation and draw helpers
+
+function hor_wave_print(_str,_x,_y,_col,_dst, _i,_spd)
+	local dst = _dst or 4
+	local spd = _spd or 1
+	local i = _i or t()
+	local x = _x
+	local xm = 1
+	for c=1,#_str do
+		local s=sub(_str,c,c)
+		local y = _y+cos((i+c/#_str*2)/spd)*dst
+		print(s,x-1+(4*xm),y+1,1)
+		print(s,x+(4*xm),y,_col)
+		xm+=1
+	end
+end
+
+-->8
+-- coroutine functions
+function create_timer(_callback, _max, _loop, _lc, _finally, _call_asap)
+	local loop = _loop or false 
+	local lc = _lc
+    local finally = _finally
+    local call_asap = _call_asap or false
+    local call_index = 1
+	local max = _max or 1
+    if call_asap then
+        call_index = 1
+    else
+        call_index = max
+    end
+    local new_timer = cocreate(function()
+		local i=1
+		local li=1
+        while i<=max do
+            yield()
+            if (i==call_index) _callback()
+			if (i==max) then
+				if (loop) then
+					if (lc~=nil and li>=lc) then
+                        break 
+                    end
+					i=0
+					li+=1
+				end
+			end
+			i+=1
+        end
+        if (finally~=nil) finally() -- printh('running _finally in timer') 
+    end)
+        -- add(routines, new_timer)
+    return new_timer
+end
+
+function manage_routines(_t)
+    local t = _t or routines
+    for i, routine in pairs(t) do
+        manage_routine(routine)
+    end
+end
+
+function manage_routine(routine)
+	if routine~=nil then
+		if costatus(routine) then
+			a,e = coresume(routine)
+            if (e) printh('COROUTINE EXCEPTION: '..e)
+		end
+		if costatus(routine)=='dead' then
+            del(aroutines, routine)
+			del(routines, routine)
+		end
+	end
+end
+
+function yields(n) for i=1,n do yield() end end
+
+
+-->8
+-- entity functions
+
+function move_entity(p)
+	p.context_show=false
+	
+	--when the user tries to move,
+	--we only add the acceleration
+	--to the current speed.
+	if (btn(0,p.pid)) p.mot.dx-=p.mot.a
+	if (btn(1,p.pid)) p.mot.dx+=p.mot.a
+	if (btn(2,p.pid)) p.mot.dy-=p.mot.a
+	if (btn(3,p.pid)) p.mot.dy+=p.mot.a 
+	--if we acceleration keeps
+	--getting added, they will just
+	--speed up forever. so we need
+	--to limit the speed to a max
+	--speed in both horizontal and
+	--vertical directions.
+	p.mot.dx=mid(-p.mot.mspd,p.mot.dx,p.mot.mspd)
+	p.mot.dy=mid(-p.mot.mspd,p.mot.dy,p.mot.mspd)
+
+	--before doing any movement,
+	--just check if they are next
+	--to a wall, and if so, don't
+	--let allow movement in that
+	--direction.
+	wall_check(p)
+
+	--before the player is moved,
+	--movement needs to be checked
+	--to see if the player actually
+	--can move in that direction.
+	if (can_move(p,p.mot.dx,p.mot.dy)) then
+		--actually move the player to
+		--the new location
+		p.pos.x+=p.mot.dx
+		p.pos.y+=p.mot.dy
+	
+	--but if the player cannot move
+	--into that spot, find out how
+	--close they can get and move
+	--them there instead.
+	else
+		
+		--create temporary variables
+		--to store how far the player
+		--is trying to move.
+		tdx=p.mot.dx
+		tdy=p.mot.dy
+		
+		--now we're going to make
+		--tdx,tdy shorter and shorter
+		--until we find a new position
+		--that the player can move to.
+		while (not can_move(p,tdx,tdy)) do
+			-- printh(p.pid..': cant move')
+			--if the amount of x movement
+			--has been shortened so much
+			--that it's practically 0,
+			--just set it to 0.
+			if (abs(tdx)<=0.1) then
+				tdx=0
+			
+			--but if it's not too small,
+			--make it 90% of what it was
+			--before. (this shortens the
+			--amount the player is trying
+			--to move in that direction.)
+			else
+				tdx*=0.9
+			end
+			
+			--do the same thing for y
+			--movement.
+			if (abs(tdy)<=0.1) then
+				tdy=0
+			else
+				tdy*=0.9
+			end
+			if tdx==0 and tdy==0 then
+				tdx=p.mot.dx*-1/10*0.9
+				tdy=p.mot.dy*-1/10*0.9
+				break
+
+			end
+		end
+
+		--now that we've shorted the
+		--distance the player is
+		--trying to move to something
+		--actually possible, actually
+		--move the player to that new
+		--shortened distance.
+		p.pos.x+=tdx
+		p.pos.y+=tdy
+	end 
+	
+	--if the player's still moving,
+	--then slow them down just a
+	--bit using the drag amount.
+	if (abs(p.mot.dx)>0) p.mot.dx*=p.mot.drg
+	if (abs(p.mot.dy)>0) p.mot.dy*=p.mot.drg
+	
+	--if they are going slow enough
+	--in a particular direction,
+	--just bring them to a halt.
+	if (abs(p.mot.dx)<0.01) p.mot.dx=0
+	if (abs(p.mot.dy)<0.01) p.mot.dy=0
+
+	pi=3.14
+	
+	-- p.crosshair_origx=p.pos.x+p.w/2
+	-- p.crosshair_origy=p.pos.y+p.h/2
+	-- if not p.crosshair_locked then
+
+	-- 	p.crosshair_rectx=p.crosshair_origx+(p.mot.dx*12)
+	-- 	p.crosshair_recty=p.crosshair_origy+(p.mot.dy*12)
+
+	-- 	p.crosshairx=p.crosshair_origx+(p.mot.dx*18)
+	-- 	p.crosshairy=p.crosshair_origy+(p.mot.dy*18)
+	-- 	if (p.moving) p.aimx=p.crosshairx p.aimy=p.crosshairy
+
+	-- else
+	-- 	p.crosshair_rectx=p.crosshair_origx+(p.locked_crosshair.crosshair_dx*6)
+	-- 	p.crosshair_recty=p.crosshair_origy+(p.locked_crosshair.crosshair_dy*6)
+
+	-- 	p.crosshairx=p.crosshair_origx+(p.locked_crosshair.crosshair_dx*10)
+	-- 	p.crosshairy=p.crosshair_origy+(p.locked_crosshair.crosshair_dy*10)
+
+	-- end
+	
+		-- p.crosshair_angle=aget(p.crosshair_origx,p.crosshair_origy,p.crosshairx,p.crosshairy)
+
+	-- if p.moving or p.crosshair_locked then
+	-- 	p.aim_angle=p.crosshair_angle
+	-- else
+	-- 	p.aim_angle=aget(p.crosshair_origx,p.crosshair_origy,p.aimx,p.aimy)
+	-- end
+end
+
+
+-->8
+-- stage1 functions
+
+function init_stage1()
+	music(0)
+	for i=1, max_ents do
+		create_testent(rnd(128), rnd(128))
+	end
+	players[2].act=false
+end
+
+function draw_stage1()
+	map(0,0,0,0,32,32)	
+	circfill(127,127,3,3)
+	-- foreach(players, function(p)
+	-- 	if (p.act) print(p.header..p.char,p.pos.x,p.pos.y, p.col)
+	-- end)
+	for i, p in pairs(entities) do
+		if p.act then 
+			-- print(p.header..p.char,p.pos.x,p.pos.y, p.col)
+			sys_ent__draw_coll(p)
+		end
+	end
+end
+
+function update_stage1()
+
+	for i, p in pairs(players) do
+		if (p.act) move_entity(p) update_controls(p)
+	end
+	update_camera()
+end
+
+
+-->8
+-- camera code
+function update_camera()
+	local p1,p2=players[1],players[2]
+	local p1x,p1y= p1.pos.x, p1.pos.y
+	local p2x,p2y= p2.pos.x, p2.pos.y
+	-- local pa = aget(p1x, p1y, p2x, p2y)
+	local pa = oaget(p1, p2)
+	local pd = dst(p1, p2)
+	
+	if #players==0 then
+		midx=64
+		midy=64
+	elseif p1.act and not p2.act then
+		midx=(p1.pos.x-64)
+		midy=(p1.pos.y-64)
+	elseif p1.act and p2.act then
+		midx = p1x+(cos(pa)*pd/2)-60
+		midy = p1y+(sin(pa)*pd/2)-60
+	else
+		camera()
+	end
+	camx=midx
+	camy=midy
+
+	camera(camx,camy)
+
+
+end
+
+-->8
+-- math functions
+
+
+
+--random int between 0,h
+function rand(h) --exclusive
+    return flr(rnd(h))
+end
+function randi(h) --inclusive
+    return flr(rnd(h+1))
+end
+
+--random int between l,h
+function randb(l,h) --exclusive
+    return flr(rnd(h-l))+l
+end
+function randbi(l,h) --inclusive
+    return flr(rnd(h+1-l))+l
+end
+
+function aget(x1,y1,x2,y2) return atan2(-(x1-x2), -(y1-y2)) end
+
+function oaget(o1,o2)
+	return aget(o1.pos.x, o1.pos.y, o2.pos.x, o2.pos.y)
+end
+
+function dst(o1,o2)
+	local x0,y0=o1.pos.x,o1.pos.y
+	local x1,y1=o2.pos.x,o2.pos.y
+  	return dst_basic(x0,y0,x1,y1)
+end
+function dst_basic(x0,y0,x1,y1)
+  -- scale inputs down by 6 bits
+  local dx=(x0-x1)/64
+  local dy=(y0-y1)/64
+  
+  -- get distance squared
+  local dsq=dx*dx+dy*dy
+  
+  -- in case of overflow/wrap
+  if(dsq<0) return 32767.99999
+  
+  -- scale output back up by 6 bits
+  return sqrt(dsq)*64
+end
+function sqr(x) return x*x end
+
+-->8
+--collision functions
+
+--this function takes an object
+--and a speed in the x and y
+--directions. it uses those
+--to check the four corners of
+--the object to see it can move
+--into that spot. (a map tile
+--marked as solid would prevent
+--movement into that spot.)
+
+function cmpnt_new_coll_box(_cx, _cy, _cw, _ch, _coll_callback)
+    local coll_box = {
+        cx = _cx,
+        cy = _cy,
+        cw = _cw,
+        ch = _ch,
+        cx_l = 0,
+        cx_r = 0,
+        cy_t = 0,
+        cy_b = 0,
+		coll_callback = _coll_callback or function() end
+    }
+	return coll_box
+end
+
+function sys_pos__coll_check(x,y, coll_box)
+	return (coll_box.cx_r>=x and
+	coll_box.cx_l<=x) and
+	(coll_box.cy_b>=y and
+	coll_box.cy_t<=y)
+end
+
+function sys_ent__coll_check(e)
+	-- this function specifically checks the collision between existing entities in the world
+    
+    collide = false
+    if e.pid<2 then
+		for i, tar in pairs(entities) do
+			if tar.act==true and e.act==true and tar.pid~=e.pid then
+				if tar.coll_box~=nil then
+					if (e.coll_box.cx_r>=tar.coll_box.cx_l and
+						e.coll_box.cx_l<=tar.coll_box.cx_r) and
+						(e.coll_box.cy_b>=tar.coll_box.cy_t and
+						e.coll_box.cy_t<=tar.coll_box.cy_b) then
+							e.coll_box:coll_callback(tar)
+							-- printh(tar.pid)
+					end
+				end
+			end
+		end
+	end
+    return collide
+end
+
+function sys_ent__draw_coll(e)
+    -- top
+    line(e.coll_box.cx_l,e.coll_box.cy_t,e.coll_box.cx_r,e.coll_box.cy_t,3)
+    --bottom
+    line(e.coll_box.cx_l,e.coll_box.cy_b,e.coll_box.cx_r,e.coll_box.cy_b,14)
+
+    --left
+    line(e.coll_box.cx_l,e.coll_box.cy_t,e.coll_box.cx_l,e.coll_box.cy_b,12)
+
+    --right
+    line(e.coll_box.cx_r,e.coll_box.cy_t,e.coll_box.cx_r,e.coll_box.cy_b,2)
+
+end
+
+function sys_ent__update_coll(e)
+    e.coll_box.cx_l = e.pos.x + e.coll_box.cx
+    e.coll_box.cx_r = e.pos.x + e.coll_box.cx + e.coll_box.cw
+    e.coll_box.cy_t = e.pos.y + e.coll_box.cy
+    e.coll_box.cy_b = e.pos.y + e.coll_box.cy + e.coll_box.ch
+end
+
+function can_move(a,dx,dy)
+	
+	--create variables for the
+	--left, right, top, and bottom
+	--coordinates of where the
+	--object is trying to be.
+	local nx_l=a.pos.x+dx       --lft
+	local nx_r=a.pos.x+dx+a.pos.w   --rgt
+	local ny_t=a.pos.y+dy       --top
+	local ny_b=a.pos.y+dy+a.pos.h   --btm
+
+	--now check each corner of
+	--where the object is trying to
+	--be and see if that spot is
+	--solid or not.
+	local top_left_solid=solid(nx_l,ny_t)
+	local btm_left_solid=solid(nx_l,ny_b)
+	local top_right_solid=solid(nx_r,ny_t)
+	local btm_right_solid=solid(nx_r,ny_b)
+	local top_left_offcam=off_cam(nx_l,ny_t)
+	local btm_left_offcam=off_cam(nx_l,ny_b)
+	local top_right_offcam=off_cam(nx_r,ny_t)
+	local btm_right_offcam=off_cam(nx_r,ny_b)
+
+	--if all of those locations are
+	--not solid, the object can
+	--move into that spot.
+	if a.pid>1 then
+		return not (top_left_solid or
+				btm_left_solid or
+				top_right_solid or
+				btm_right_solid)
+	end
+	return not (top_left_solid or
+				btm_left_solid or
+				top_right_solid or
+				btm_right_solid or
+				top_left_offcam or
+				btm_left_offcam or
+				top_right_offcam or
+				btm_right_offcam)
+	
+	
+	
+end
+
+function off_cam(x,y)
+	if camx>x or camx+127<x then
+		return true
+	elseif camy>y or camy+127<y then
+		return true
+	else 
+		return false
+	end
+end
+--checks an x,y pixel coordinate
+--against the map to see if it 
+--can be walked on or not
+function solid(x,y)
+
+ --pixel coords -> map coords
+ local map_x=flr(x/8)
+ local map_y=flr(y/8)
+ 
+ --what sprite is at that spot?
+ local map_sprite=mget(map_x,map_y)
+ 
+ --what flag does it have?
+ local flag=fget(map_sprite)
+
+ --if the flag is 1, it's solid
+ return flag==1
+end
+
+--this checks to see if the
+--player is next to a wall. if
+--so, don't let them try to move
+--in that direction.
+function wall_check(a)
+ 
+ --going left?
+ if (a.mot.dx<0) then
+  --check both left corners for
+  --a wall.
+  local wall_top_left=solid(a.pos.x-1,a.pos.y)
+  local wall_btm_left=solid(a.pos.x-1,a.pos.y+a.pos.h)
+
+  --if there is a wall in that
+  --direction, set x movement
+  --to 0.
+  if (wall_top_left or wall_btm_left) then
+   a.mot.dx=0
+  end
+  
+ --going right?
+ elseif (a.mot.dx>0) then
+  --check both right corners for
+  --a wall.
+  local wall_top_right=solid(a.pos.x+a.pos.w+1,a.pos.y)
+  local wall_btm_right=solid(a.pos.x+a.pos.w+1,a.pos.y+a.pos.h)
+
+  --if there is a wall in that
+  --direction, set x movement
+  --to 0.
+  if (wall_top_right or wall_btm_right) then
+   a.mot.dx=0
+  end
+ end
+
+ --going up?
+ if (a.mot.dy<0) then
+  --check both top corners for
+  --a wall.
+  local wall_top_left=solid(a.pos.x,a.pos.y-1)
+  local wall_top_right=solid(a.pos.x+a.pos.w,a.pos.y-1)
+
+  --if there is a wall in that
+  --direction, set y movement
+  --to 0.
+  if (wall_top_left or wall_top_right) then
+   a.mot.dy=0
+  end
+  
+ --going down?
+ elseif (a.mot.dy>0) then
+  --check both bottom corners 
+  --for a wall.
+  local wall_btm_left=solid(a.pos.x,a.pos.y+a.pos.h+1)
+  local wall_btm_right=solid(a.pos.x,a.pos.y+a.pos.h+1)
+
+  --if there is a wall in that
+  --direction, set y movement
+  --to 0.
+  if (wall_btm_right or wall_btm_left) then
+   a.mot.dy=0
+  end
+ end
+
+ --the two commented lines of 
+ --code below do the same thing
+ --as all the lines of code 
+ --above, but are just condensed
+	
+	--if ((a.mot.dx<0 and (solid(a.pos.x-1,a.pos.y) or solid(a.pos.x-1,a.pos.y+a.pos.h-1))) or (a.mot.dx>0 and (solid(a.pos.x+a.pos.w,a.pos.y) or solid(a.pos.x+a.pos.w,a.pos.y+a.pos.h-1)))) p.mot.dx=0
+	--if ((a.mot.dy<0 and (solid(a.pos.x,a.pos.y-1) or solid(a.pos.x+a.pos.h-1,a.pos.y-1))) or (a.mot.dy>0 and (solid(a.pos.x,a.pos.y+a.pos.h) or solid(a.pos.x+a.pos.w-1,a.pos.y+a.pos.h)))) p.mot.dy=0
+end
+__gfx__
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0600000000000000000000000001117000011170000111700144400000000000000444100005555005516500000570000000000000000000000d500000000000
+dd6111700661117000011170011cc720011cc720011cc720441444100144441001444144005165007dd1755000076000000760000006d0000005700000000000
+0dd6c720ddd6c720011cc7201cccc7201cccc7201cccc72047644144441441444414467405d1750507ddd5050076d5000006d000000d500000576d0000000000
+ddd6c7201dd6c720166cc720ddd6cc101cc6cc101dd6cc104374467447644674476447345ddddd5d0000dd5d076d5760006d570000d576000576d57000000000
+1dd6cc101cc6cc10ddd6cc10166ccc111dd6cc11ddd6cc1143788734437447344378873449999ddd00009ddd76d576d506d576d50d576d50576d576d00000000
+1ccccc111ccccc111ccccc1149999400ddd694004dd694004448873443788734437884440499940507999405555555556d576d57d576d5765555555500000000
+4999940049999400499994000444400006644000dd64400011fff44444488444444fff1100444400799994400110010055555555555555550010011000000000
+04444000044440000444400000000000000000000600000000000f1111ffff1111f0000000044440044444001110011001100110110000110110011100000000
+00114444400000000000000000000000000000044444110002027702207720201111111111111111111111111111111111111111111111111111111111111111
+01111444444411000011444444441100001144444441111000771b7007b1770012ffff211f2fff2112fff2f118ffff8116ffff611f8fff811f6fff6118fff8f1
+04411144444111100111144444411110011114444411144027177172271771721729927112799271172997211789987117699671187998711679967117899781
+44441114441114400441114444111440044111444111444407b1778008771b701729927112799271172997211789987117699671187998711679967117899781
+4466d11441114444444411144111444444441114411d664418778882288877811f9999911f9999911f9999911f9999911f9999911f9999911f9999911f999991
+46776d14411d66444466d114411d66444466d11441d6776418888710017888811f9229911f9229911f9229911f8888911f66669118888991166669911f988881
+4733764441d6776446776d1441d6776446776d144467337401781102211187101f2992911f2992911f2992911f8888911f66669118888891166666911f888881
+47337644446733744733764444673374473376444467337420110200002011021111111111111111111111111111111111111111111111111111111111111111
+47337648846733744733764444673374473376488467337400111100000000000000000000000000000000000000000000000000000000000000000000000000
+47337688886733744733764884673374473376888867337401133310000111000000000000000000000000000000000000000000000000000000000000000000
+4477648888673374473376888867337447337688884677440137b710001133100000000000000000000000000000000000000000000000000000000000000000
+0444442288467744447764888846774444776488224444400131b1100117b7100000000000000000000000000000000000000000000000000000000000000000
+01111fff22444440044444222244444004444422fff1111011bbb3100131b1100000000000000000000000000000000000000000000000000000000000000000
+1dd51ffffff1111001111ffffff1111001111ffffff15dd113bb131011bbb3100000000000000000000000000000000000000000000000000000000000000000
+11111000fff15dd11dd51ffffff15dd11dd51fff0001111113bb131013bb13100000000000000000000000000000000000000000000000000000000000000000
+00000000000111111111100000011111111110000000000013bbb31013bb13110000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+422442244224422442244224b3bb333333b33333333b3b3300000000000000000000000000000000000000000000000000000000000000000000000000000000
+42222244422222444222224433bb3333333333333333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+22422444224224442242244433333b333b3b33b333b3333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+24442444244424442444244433333333333333333333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+244424442444244424442444333b33333333b3333333bb3300000000000000000000000000000000000000000000000000000000000000000000000000000000
+2244244222442442224424423b3333b3333333333b33b33b00000000000000000000000000000000000000000000000000000000000000000000000000000000
+422222222222222242222222333333333b3333333333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+4424422224244224442442223333b33333b33b3b333333b300000000000000000000000000000000000000000000000000000000000000000000000000000000
+4224422222244224222442243333333333333333333b333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+422222422222224422222244b3333b3333333b333b33333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+224224422242244422422444333333333b33333333333b3300000000000000000000000000000000000000000000000000000000000000000000000000000000
+244424422444244424442444333b33333333333b3333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+24442444244424442444244433333333333b333333b3333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+22442442224424422244244233333b33333333333333b33b00000000000000000000000000000000000000000000000000000000000000000000000000000000
+42222222422222224222222233b33333333333b33333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+4424422444244224442442243333333b33b33333b333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+42244224422442244224422433333333333333333333333b00000000000000000000000000000000000000000000000000000000000000000000000000000000
+4222224442222244422222443333b3333b33b3333333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+2242244422422444224224443b3333333333333333b3333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+2444244424442444244424443333b33b333333333333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+244424442444244424442444333b333333bb33b33333b33300000000000000000000000000000000000000000000000000000000000000000000000000000000
+2244244222442442224424423333333333bb33333333333b00000000000000000000000000000000000000000000000000000000000000000000000000000000
+22222222222222224222222233b333333b333b333b33333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+24244224242442244424422233333333333333333333333300000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000000000000dddd0000444440000000000000000000000000004444400000000000000000000000000000000000000000
+00444400004444000000000000000000000000000d7667d0044fff4400000440000711000044f000044fff440111110044444000444440004444400800444440
+04444440044444400000000000000000000000000d7667d004f1ff140000ff440071190004419f7004fffff4117cc71044ff440044ff440044ff4400044fff44
+044444f00f4444400444440000444440004444400062260000ffee9f0199f1f400f9990004ffe91700f1ff101c7cc710f1ff1450f1ff14d8f1ff145004f1ff14
+00ffff0000ffff0044fff440044fff44044fff4466999966000999f00119eff40f9eeff004ffe911009999000cc11c00ffeeddd5ffee666dffee666500fffff0
+0f999900009999f04f1ff14004f1ff1404fffff400111100000911700719eff4041ff1f404f1f9910f1111f017777100999fdf50999f6fd8999f6f5000999900
+00111170071111000fffff0f70fffff000f1ff100011110000011700007f9144044fff44044ff00007000070011110001111000011110000111100000f1111f0
+0700000000000070711999f00711999f711999ff07700770000000000000f4400044444000440000000000000070070070070000700700007007000800700700
+00444400004444400000000000444440004444400000000000000000000000000000000000000000000000000044444000000000000000000000000000000000
+041ff1400441ff1400444440044fff44044fff44004444400044444000444440004444400044444004444400041ff14400444440004444400044444000000000
+04feef4004ffeef4044fff4404f1ff1404f1ff14044fff44044fff44044fff44044fff44044fff4444fff44004feeff4044fff44044fff44044fff4400000000
+f0ffff0f00fffff004f1ff1400fffff000fffff004f1ff1404fbffb404fbffb404fbffb404fbffb441ff1f4000fffff004f1ff1404f1ff1404f1ff1400000000
+0f9999f00f9999f000fffff0009999000099990000fffff000ffeef000ffeef000ffeef000ffeef00feeff000009999f00fffff000fffff000fffff000000000
+001111000011110000999900001111700711110000999900009999ff009999ff009999ff009999ff009999f00001111f009999f0009f99000f99990000000000
+001111000700700000111170070000000000007007111100001111700011117007111100071111000f11110000000077001111f0001111000f11110000000000
+07700770000000000070000000000000000000000000070000700000007000000000007000000700000700700000000007007000070007000070700000000000
+00000000000000000000000000000000000000000000000000000000000000000f4444f04f4444f0000000000000000000000000000070000000000000000000
+04444400044444000000000000444440000000000444440000000000044444004f4ff4f04f4ff4f00000076d0000000000000076000070000000000000000000
+44fff44044fff44000000000044fff440000000044fff4400000000044fff440491ff190091ff190000776d5000000000000776d000767000000000000000000
+4f1ff1404f1ff1200000000004f1ff14200000004f1ff120000000004f1ff14009feef9009feef900000076d00700070007766d5000767000000000000000000
+0ffeef700ffee2277700000000ffeef2277777700ffee227777000000ffeef70009999000099990000000000007000707766dd550076d6700000000000000000
+0999996709999926667000000099999f2666666709999926666700000999996700111100001111000000076d07670767007766d50076d6700000000000000000
+01111170011112277700000000111112277777700111122777700000011111700011110000111100000776d506d606d60000776d076d5d670000000000000000
+070070000700072000000000070000072000000007000720000000000700700000770770007707700000076d0d5d0d5d0000007606d555d60000000000000000
+80000002088282000000008000222000002882000cc1c100000000c000111000001cc100000000000d5d0d5d0000000006d555d6000000000000000000000000
+0800002089289820002802980289820002899820cc1ccc10001c01cc01ccc10001cccc100000000006d606d6d6700000076d5d67670000000000000000000000
+008002000208998202898028289a98202899a982010cccc101ccc01c1cc7cc101ccc7cc100000000076707675d6770000076d670d67700000000000000000000
+000820000089a998889a988289a7a980899a7a9200cc7cccccc7ccc1cc777cc0ccc777c10000000000700070d67000000076d6705d6677000000000000000000
+00028000089a7a9889a7a998899a98002889a9820cc777cccc777cccccc7cc001ccc7cc10000000000700070000000000007670055dd66770000000000000000
+002008000289a982889a9982289980208208982001cc7cc1ccc7ccc11cccc010c10ccc100000000000000000d6700000000767005d6677000000000000000000
+0200008000289820028998200289829889208200001ccc1001cccc1001ccc1cccc10c10000000000000000005d67700000007000d67700000000000000000000
+2000000800088800002882000028288008000000000ccc00001cc100001c1cc00c0000000000000000000000d670000000007000670000000000000000000000
+__label__
+11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
+1bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb1
+1bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb1
+1bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb1
+1bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb1
+11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
+13333331133333311333333333333331999399919993399119933331199333339993399113333991999399919993999119333333333333311333333113333331
+13333331133333311333333333333331939393919333933193333331939333333933939113339331193393919393393119333333333333311333333113333331
+11111111133333311333333333333331999399319933999199933331939333333933939113339991193399919933393119333333333333311333333111111111
+1bbbbbb113333331133333333333333193339391933333911393333193933333393393911333339119339391939339311333333333333331133333311bbbbbb1
+1bbbbbb113333331133333333333333193339391999399319933333199333333393399311333993119339391939339311933333333333331133333311bbbbbb1
+1bbbbbb111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111bbbbbb1
+1bbbbbb144514451445144514451445144514451445144514451445144514451445144514451445144514451445144514451445144514451445144511bbbbbb1
+11111111451445144514451445144514451445144514451445144514451445144514451445144514451445144514451445144514451445144514451411111111
+13333331514451445144514451445144514451445144514451445144514451445144514451445144514451445144514451445144514451445144514413333331
+13333331111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111113333331
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+133333311ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd13333331
+133333311ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd13333331
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+133333311ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd13333331
+13333331111111111111111166666666666666661111111111111111666666666666666611111111111111116666666666666666111111111111111113333331
+1111111167777777777777771ddddddd1111111111111111111111111111111111111111111111111111111111111111dddddddd677777777777777711111111
+1bbbbbb167777777777777771ddddddd1111111111111111111111111111111111111111111111111111111111111111dddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddd1199444444444444444444444444444444444444444444444444444444449911dddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddd1199444444444444444444444444444444444444444444444444444444449911dddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddd1144444488884488884444884488448888884488888844444444444444444411dddddddd67777777777777771bbbbbb1
+1111111167777777777777771ddddddd1144444488884488884444884488448888884488888844444444444444444411dddddddd677777777777777711111111
+1333333167777777777777771ddddddd1144444488224488228844884488442288224422882244444444444444444411dddddddd677777777777777713333331
+1333333167777777777777771ddddddd1144444488224488228844884488442288224422882244444444444444444411dddddddd677777777777777713333331
+1111111167777777777777771ddddddd1144444488884488882244884488444488444444884444444444444444444411dddddddd677777777777777711111111
+1bbbbbb167777777777777771ddddddd1144444488884488882244884488444488444444884444444444444444444411dddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddd1144444488224488228844888888448888884444884444444444444444444411dddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddd1144444488224488228844888888448888884444884444444444444444444411dddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddd1144444422444422442244222222442222224444224444444444444444444411dddddddd67777777777777771bbbbbb1
+1111111167777777777777771ddddddd1144444422444422442244222222442222224444224444444444444444444411dddddddd677777777777777711111111
+1333333167777777777777771ddddddd1144444477777744444444444444444444444444444444444444444444444411dddddddd677777777777777713333331
+13333331666666666666666611111111114444447777774444444444444444444444444444444444444444444444441111111111666666666666666613333331
+111111111ddddddddddddddd6777777711444477993399774444bbbbbb4433333344bb44444433333344bbbb44444411777777771ddddddddddddddd11111111
+1bbbbbb11ddddddddddddddd6777777711444477993399774444bbbbbb4433333344bb44444433333344bbbb44444411777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd6777777711446699778888997744bb33334433113344bb44444433113344bb33bb444411777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd6777777711446699778888997744bb33334433113344bb44444433113344bb33bb444411777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd6777777711446688887788887744bbbbbb4433333344bb44444433333344bb44bb444411777777771ddddddddddddddd1bbbbbb1
+111111111ddddddddddddddd6777777711446688887788887744bbbbbb4433333344bb44444433333344bb44bb444411777777771ddddddddddddddd11111111
+133333311ddddddddddddddd67777777114466888888778877443333bb4433113344bb44444433113344bb44bb444411777777771ddddddddddddddd13333331
+133333311ddddddddddddddd67777777114466888888778877443333bb4433113344bb44444433113344bb44bb444411777777771ddddddddddddddd13333331
+111111111ddddddddddddddd6777777711444466888888664444bbbbbb4433443344bbbbbb4433443344bbbb33444411777777771ddddddddddddddd11111111
+1bbbbbb11ddddddddddddddd6777777711444466888888664444bbbbbb4433443344bbbbbb4433443344bbbb33444411777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd677777771144444466666644444433333344114411443333334411441144333344444411777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd677777771144444466666644444433333344114411443333334411441144333344444411777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd677777771199444444444444444444444444444444444444444444444444444444449911777777771ddddddddddddddd1bbbbbb1
+111111111ddddddddddddddd677777771199444444444444444444444444444444444444444444444444444444449911777777771ddddddddddddddd11111111
+133333311ddddddddddddddd677777771111111111111111111111111111111111111111111111111111111111111111777777771ddddddddddddddd13333331
+13333331111111111111111166666666111111111111111111111111111111111111111111111111111111111111111166666666111111111111111113333331
+1111111167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777711111111
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1111111167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777711111111
+1333333167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777713333331
+1333333167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777713333331
+1111111167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777711111111
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1111111167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777711111111
+1333333167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777713333331
+13333331666666666666666611111111111111116666666666666666111111111111111166666666666666661111111111111111666666666666666613333331
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+133333311ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd13333331
+133333311ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd13333331
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+133333311ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd13333331
+13333331111111111111111166666666666666661111111111111111666666666666666611111111111111116666666666666666111111111111111113333331
+1111111167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777711111111
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1111111167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777711111111
+1333333167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777713333331
+1333333167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777713333331
+1111111167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777711111111
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1bbbbbb167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771bbbbbb1
+1111111167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777711111111
+1333333167777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd677777777777777713333331
+13333331666666666666666611111111111111116666666666666666111111111111111166666666666666661111111111111111666666666666666613333331
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+1bbbbbb11ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd1bbbbbb1
+111111111ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd11111111
+133333311ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd13333331
+133333311ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd67777777777777771ddddddddddddddd13333331
+11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
+1bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb1
+1bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb1
+1bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb1
+1bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb11bbbbbb11bbbbbbbbbbbbbb11bbbbbb11bbbbbb1
+11111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111
+13333331133333311333333333333331133333311333333113333331133333333333333113333331133333311333333113333333333333311333333113333331
+13333331133333311333333333333331133333311333333113333331133333333333333113333331133333311333333113333333333333311333333113333331
+
+__gff__
+0000000000000000000000000000000000000000000000000101010000000000000001000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000000001010100000000000000010000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
