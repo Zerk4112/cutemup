@@ -7,6 +7,7 @@ __lua__
 -- game loop
 
 function _init()
+	
 	mchunks = {}
 	printh('~~~~~~~~PROG INIT~~~~~~')
 	menuitem(1,"Toggle Player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
@@ -16,9 +17,10 @@ function _init()
 	aroutines={}
 	routines={}
 	entities={}
-	camx=0
-	camy=0
-	cam_coll_box = cmpnt_new_coll_box(64, 64, 4, 4, function() printh('camera collision!') end)
+	cament = create_ent({}, -1, {x=0,y=0,w=4,h=4}, _mot, _coll_box)
+	cament.coll_box = cmpnt_new_coll_box(64, 64, 10, 10, function() end)
+	del(aroutines, cament.draw_rig)
+	del(entities, cament)
 	map_cenx,map_ceny=120,120
 	s_w=128
 	init_players()
@@ -40,8 +42,8 @@ function _draw()
     cls()
 	manage_routines(aroutines)
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
-
-	print(#aroutines,camx+2,camy+2,8)
+	print('debug', cament.pos.x,cament.pos.y,8)
+	print(#aroutines)
 	-- print(#players..' players: ')
 	print(players[1].mot.dx..","..players[1].mot.dy)
 	
@@ -358,7 +360,7 @@ function scene_fade(_in, _cb)
                             r-=0.5
                             if (r<0)r=0
                         end
-                        circfill(camx+x*16,camy+y*16,r,1)
+                        circfill(cament.pos.x+x*16,cament.pos.y+y*16,r,1)
                         yield()
                     end
                 end,1) 
@@ -710,8 +712,8 @@ function make_mapper(_id)
 	local m = {
 		chunk = nil,
 		pos = {
-			x = camx+64,
-			y = camy+64,
+			x = cament.pos.x+64,
+			y = cament.pos.y+64,
 		},
 		w=4,
 		h=4,
@@ -721,15 +723,11 @@ function make_mapper(_id)
 		coll_check = function(s) 
 			-- printh('checking mapper collision')
 			s.color = 7
-			for p in all(players) do
-				if p.act then
-					-- printh('player is acting')
-					-- printh(simple_coll_check(p.coll_box, s.coll_box))
-					if simple_coll_check(p.coll_box, s.coll_box) then
-						s.coll_box:coll_callback(s)
-						-- printh('mapper is touching player')
-					end
-				end
+			-- printh('player is acting')
+			-- printh(simple_coll_check(p.coll_box, s.coll_box))
+			if simple_coll_check(cament.coll_box, s.coll_box) then
+				s.coll_box:coll_callback(s)
+				-- printh('mapper is touching player')
 			end
 		end
 	}
@@ -742,8 +740,8 @@ end
 
 function init_mapper()
 	ments = {}
+	mchunks = {}
 	-- local helper = make_mapper(2)
-
 	add(ments, make_mapper())
 	mdraw = create_timer(draw_mapper,1,true)
 	mupdate = create_timer(update_mapper,1,true)
@@ -769,7 +767,6 @@ end
 -- stage1 functions
 
 function init_stage1()
-	mchunks = {}
 	music(0)
 	for i=1, max_ents do
 		create_testent(rnd(128), rnd(128))
@@ -802,13 +799,7 @@ end
 
 
 function update_camera()
-	if cament==nil then
-		printh("update_camera: Created camera entity")
-		cament = create_ent({}, -1, {x=camx,y=camy,w=4,h=4}, _mot, _coll_box)
-		cament.coll_box = cmpnt_new_coll_box(64, 64, 10, 10, function() printh('camera collision') end)
-		del(aroutines, cament.draw_rig)
-		del(entities, cament)
-	end
+	
 	local p1,p2=players[1],players[2]
 	local p1x,p1y= p1.pos.x, p1.pos.y
 	local p2x,p2y= p2.pos.x, p2.pos.y
@@ -823,16 +814,15 @@ function update_camera()
 		midx=(p1.pos.x-64)
 		midy=(p1.pos.y-64)
 	elseif p1.act and p2.act then
-		midx = p1x+(cos(pa)*pd/2)-62.5
-		midy = p1y+(sin(pa)*pd/2)-62.5
+		midx = p1x+(cos(pa)*pd/2)-64
+		midy = p1y+(sin(pa)*pd/2)-64
 	else
 		camera()
 	end
-	camx=midx
-	camy=midy
-	cament.pos.x=camx
-	cament.pos.y=camy
-	camera(camx,camy)
+	cament.pos.x=midx
+	cament.pos.y=midy
+	sys_ent__update_coll(cament)
+	camera(cament.pos.x,cament.pos.y)
 
 
 end
@@ -1015,9 +1005,9 @@ function can_move(a,dx,dy)
 end
 
 function off_cam(x,y)
-	if camx>x or camx+127<x then
+	if cament.pos.x>x or cament.pos.x+127<x then
 		return true
-	elseif camy>y or camy+127<y then
+	elseif cament.pos.y>y or cament.pos.y+127<y then
 		return true
 	else 
 		return false
