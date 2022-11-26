@@ -43,11 +43,12 @@ function _draw()
 	for p in all(players) do
 		-- if (p.act) draw_coll_box(p.coll_box)
 	end
-	print('debug', cament.pos.x,cament.pos.y,8)
-	print(#aroutines)
-	-- print(#players..' players: ')
-	print(players[1].mot.dx..","..players[1].mot.dy)
-	print('camera moving: '..tostr(cament.moving))
+	if (_cls) cls(1)
+
+	-- print('debug', cament.pos.x,cament.pos.y,8)
+	-- print(#aroutines)
+	-- print(players[1].mot.dx..","..players[1].mot.dy)
+	-- print('camera moving: '..tostr(cament.moving))
 	
 end
 
@@ -308,7 +309,7 @@ function init_scenes()
 				end,1,true))
 			end,
 			draw=function()
-				map(32,0,0,0,16,16)
+				-- map(32,0,0,0,16,16)
 			end
 		},
 		test_menu={
@@ -350,7 +351,6 @@ function switch_scene(_scene, _t)
 			deli(aroutines, 1)
 		end
 		current_scene = _scene
-		
 		f,s = scene_fade(true,current_scene.init)
 		while s=='suspended' do
 			s=costatus(f)
