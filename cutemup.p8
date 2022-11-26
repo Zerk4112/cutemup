@@ -21,8 +21,6 @@ function _init()
 	cament.coll_box = cmpnt_new_coll_box(64, 64, 10, 10, function() end)
 	del(aroutines, cament.draw_rig)
 	del(entities, cament)
-	map_cenx,map_ceny=120,120
-	s_w=128
 	init_players()
 	ents=2
 	add(routines, test)
