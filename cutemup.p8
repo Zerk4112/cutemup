@@ -31,7 +31,7 @@ function _update60()
 	if (current_scene~=nil and current_scene.update~=nil) current_scene:update()
 	manage_routines()
 	for i, p in pairs(players) do
-		sys_ent__update_coll(p)
+		update_coll_box(p)
 		-- sys_ent__coll_check(p)
 	end
 end
@@ -40,11 +40,14 @@ function _draw()
     cls()
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
 	manage_routines(aroutines)
-
+	for p in all(players) do
+		if (p.act) draw_coll_box(p.coll_box)
+	end
 	print('debug', cament.pos.x,cament.pos.y,8)
 	print(#aroutines)
 	-- print(#players..' players: ')
 	print(players[1].mot.dx..","..players[1].mot.dy)
+	print('camera moving: '..tostr(cament.moving))
 	
 end
 
@@ -79,6 +82,13 @@ function player_collide(self, e)
 end
 
 function update_controls(p)
+	--when the user tries to move,
+	--we only add the acceleration
+	--to the current speed.
+	if (btn(0,p.pid)) p.mot.dx-=p.mot.a
+	if (btn(1,p.pid)) p.mot.dx+=p.mot.a
+	if (btn(2,p.pid)) p.mot.dy-=p.mot.a
+	if (btn(3,p.pid)) p.mot.dy+=p.mot.a 
 	if (btn(4, p.pid)) printh('z button pressed')
 	if (btn(5, p.pid)) printh('x button pressed')
 end
@@ -169,7 +179,7 @@ function create_testent(_x,_y)
 	-- 	end
 	-- end
 	p.behavior=create_timer(function()
-		sys_ent__update_coll(p)
+		update_coll_box(p)
 		sys_ent__coll_check(p)
 		move_entity(p)
 		-- yield()
@@ -528,7 +538,7 @@ function ent_drawing_rig(e)
 		end
 		gsp()
 		
-		if (e.act) draw_entity(e,animi)  sys_ent__draw_coll(e.coll_box)
+		if (e.act) draw_entity(e,animi)
 		
 		if (e.prev_tab ~= e.sprtab) animi=1 animpos=true 
 
@@ -560,13 +570,7 @@ end
 function move_entity(p)
 	p.context_show=false
 	
-	--when the user tries to move,
-	--we only add the acceleration
-	--to the current speed.
-	if (btn(0,p.pid)) p.mot.dx-=p.mot.a
-	if (btn(1,p.pid)) p.mot.dx+=p.mot.a
-	if (btn(2,p.pid)) p.mot.dy-=p.mot.a
-	if (btn(3,p.pid)) p.mot.dy+=p.mot.a 
+
 	--if we acceleration keeps
 	--getting added, they will just
 	--speed up forever. so we need
@@ -685,13 +689,15 @@ end
 
 function draw_stage1()
 	map(0,0,0,0,32,32)	
-	-- if (cament~=nil) sys_ent__draw_coll(cament.coll_box)
 end
 
 function update_stage1()
 
 	for i, p in pairs(players) do
-		if (p.act) move_entity(p) update_controls(p)
+		if p.act then 
+			update_controls(p)
+			if (not cament.moving) move_entity(p) 
+		end
 	end
 	update_camera()
 end
@@ -700,12 +706,56 @@ end
 -->8
 -- camera code
 	
+function move_camera(newx,_newy)
+	newy = _newy or cament.pos.y
+	cament.moving = true
+	local tdst=2
+	local a = aget(newx,newy,cament.pos.x,cament.pos.y)
+	cament.mot.dx-=cos(a)
+	cament.mot.dy-=sin(a)
+	local newr = create_timer(function()
+		while tdst>1 do
+			tdst = dst_basic(newx,newy,cament.pos.x,cament.pos.y)
+			printh('newx: '..newx)
+			printh('newy: '..newy)
+			printh(cament.mot.dx)
+			printh(cament.mot.dy)
+			printh('a: '..a)
 
+			
+			cament.pos.x+=cament.mot.dx*(tdst/6)
+			cament.pos.y+=cament.mot.dy*(tdst/6)
+			players[1].pos.x+=cament.mot.dx*0.3
+			players[1].pos.y+=cament.mot.dy*0.3
+
+			yield()
+		end
+		cament.pos.x = newx
+		cament.pos.y = newy
+		cament.mot.dx=0
+		cament.mot.dy=0
+		cament.moving=false
+	end,1) 
+	add(routines, newr)
+end
 
 function update_camera()
+	local p1p = players[1].pos
+	local x,y,w,h = p1p.x,p1p.y,p1p.w,p1p.h
+	if not cament.moving then
+		if x < cament.pos.x then
+			move_camera(cament.pos.x-128)
+		elseif x+w > cament.pos.x+127 then
+			move_camera(cament.pos.x+128)
+		end
+
+		if y < cament.pos.y then
+			move_camera(cament.pos.x,cament.pos.y-128)
+		elseif y+h > cament.pos.y+127 then
+			move_camera(cament.pos.x,cament.pos.y+128)
+		end
+	end
 	camera(cament.pos.x,cament.pos.y)
-
-
 end
 
 -->8
@@ -818,7 +868,7 @@ function sys_ent__coll_check(e)
     return collide
 end
 
-function sys_ent__draw_coll(coll_box)
+function draw_coll_box(coll_box)
     -- top
     line(coll_box.cx_l,coll_box.cy_t,coll_box.cx_r,coll_box.cy_t,3)
     --bottom
@@ -832,7 +882,7 @@ function sys_ent__draw_coll(coll_box)
 
 end
 
-function sys_ent__update_coll(e)
+function update_coll_box(e)
     e.coll_box.cx_l = e.pos.x + e.coll_box.cx
     e.coll_box.cx_r = e.pos.x + e.coll_box.cx + e.coll_box.cw
     e.coll_box.cy_t = e.pos.y + e.coll_box.cy
