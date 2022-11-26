@@ -950,7 +950,7 @@ function wall_check(a)
   --check both bottom corners 
   --for a wall.
   local wall_btm_left=solid(a.pos.x,a.pos.y+a.pos.h+1)
-  local wall_btm_right=solid(a.pos.x,a.pos.y+a.pos.h+1)
+  local wall_btm_right=solid(a.pos.x+a.pos.w,a.pos.y+a.pos.h+1)
 
   --if there is a wall in that
   --direction, set y movement
