@@ -692,7 +692,7 @@ function draw_entity(e,i)
 		
 		if e.act then
 			local x,y,w,h = e.pos.x,e.pos.y,e.pos.w,e.pos.h
-			ovalfill(x,y+h,x+w,y+h+2,1)
+			ovalfill(x,y+h,x+w,y+h+2,0)
 			spr(e.sprtab[i],e.pos.x, e.pos.y,1,1, e.sprflip)
 			e.prev_tab = e.sprtab
 		end
