@@ -15,11 +15,12 @@ function _init()
 	ai_steer_spd=0.070
 	max_ents=0
 	aroutines={}
+	drigs = {}
 	routines={}
 	entities={}
 	cament = create_ent({}, -1, {x=0,y=0,w=4,h=4}, _mot, _coll_box)
 	cament.coll_box = cmpnt_new_coll_box(64, 64, 10, 10, function() end)
-	del(aroutines, cament.draw_rig)
+	del(drigs, cament.draw_rig)
 	del(entities, cament)
 	init_players()
 	ents=2
@@ -39,6 +40,20 @@ end
 function _draw()
     cls()
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
+	
+	if not cament.moving then
+		local ordered={}
+		for obj in all(entities) do
+			ordered[flr(obj.pos.y)] = ordered[flr(obj.pos.y)] or {} -- ensure table is there
+			add(ordered[flr(obj.pos.y)],obj.draw_rig)
+		end
+		for i=cament.pos.y,cament.pos.y+127 do -- or whatever your min/max Y is
+			manage_routines(ordered[i])
+		end	
+	else
+		manage_routines(drigs)
+	end
+	-- manage_routines(drigs)
 	manage_routines(aroutines)
 	for e in all(entities) do
 		-- if (e.act) draw_coll_box(e.coll_box)
@@ -47,6 +62,9 @@ function _draw()
 
 	print('debug', cament.pos.x,cament.pos.y,14)
 	print('entities: '..#entities)
+	print('aroutines: '..#aroutines)
+	print('routines: '..#routines)
+	print('drigs: '..#drigs)
 	-- print(tostr(players[1].srtn))
 	-- print(players[1].sprflip)
 	-- print(#aroutines)
@@ -59,7 +77,7 @@ end
 -- player functions
 
 function init_players()
-	if (players~=nil) for p in all(players) do del(entities, p) end
+	if (players~=nil) for p in all(players) do clean_ent(p) end
 	players={}
 	prun = {18,19,20,21}
 	pstand = {31}
@@ -126,6 +144,8 @@ function create_bullet(_x,_y,_s,_a,_id)
 		end
 	end,1,true)
 	add(aroutines,b.behavior)
+	del(drigs,b.draw_rig)
+	b.draw_rig=nil
 	return b
 end
 
@@ -179,8 +199,14 @@ function update_controls(p)
 	--when the user tries to move,
 	--we only add the acceleration
 	--to the current speed.
-	if (btn(0,p.pid)) p.mot.dx-=p.mot.a
-	if (btn(1,p.pid)) p.mot.dx+=p.mot.a
+	if (btn(0,p.pid)) then
+		p.mot.dx-=p.mot.a 
+		if (not p.shooting) p.sprflip=true
+	end
+	if (btn(1,p.pid)) then 
+		p.mot.dx+=p.mot.a 
+		if (not p.shooting) p.sprflip=false
+	end
 	if (btn(2,p.pid)) p.mot.dy-=p.mot.a
 	if (btn(3,p.pid)) p.mot.dy+=p.mot.a 
 	if btn(4, p.pid) then
@@ -605,6 +631,7 @@ function manage_routine(routine)
 		if costatus(routine)=='dead' then
             del(aroutines, routine)
 			del(routines, routine)
+			del(drigs, routine)
 		end
 	end
 end
@@ -618,7 +645,7 @@ function clean_ent(e)
 	del(aroutines,e.behavior)
 	del(routines,e.pathing)
 	del(aroutines,e.pathing)
-	del(aroutines, e.draw_rig)
+	del(drigs, e.draw_rig)
 	del(entities, e)
 end
 
@@ -651,7 +678,8 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 	}
 	e.mot.oa=e.mot.a
 	e.draw_rig = ent_drawing_rig(e)
-	add(aroutines, e.draw_rig)
+	add(aroutines, e.shadow)
+	add(drigs, e.draw_rig)
 	add(entities, e)
 	return e
 end
@@ -661,16 +689,15 @@ end
 function draw_entity(e,i)
 	local ds = function()
 		-- printh('draw print index: '..i)
-		spr(e.sprtab[i],e.pos.x, e.pos.y,1,1, e.sprflip)
-		e.prev_tab = e.sprtab
-	end
-	if not e.shooting then
-		if e.mot.dx<-0.01 then
-			e.sprflip = true
-		elseif e.mot.dx>0.01 then
-			e.sprflip = false
+		
+		if e.act then
+			local x,y,w,h = e.pos.x,e.pos.y,e.pos.w,e.pos.h
+			ovalfill(x,y+h,x+w,y+h+2,1)
+			spr(e.sprtab[i],e.pos.x, e.pos.y,1,1, e.sprflip)
+			e.prev_tab = e.sprtab
 		end
 	end
+
 	if e.animdelay > 1 then
 		for d=0, e.animdelay do
 			ds()
@@ -1145,14 +1172,14 @@ f0ffff0f00fffff004f1ff1400fffff000fffff004f1ff144fbffb404fbffb404fbffb4000000000
 0999996709999926667000000099999f266666670999992666670000099999670011110000111100000000000000000000000000000000000000000000000000
 01111170011112277700000000111112277777700111122777700000011111700011110000111100000000000000000000000000000000000000000000000000
 07007000070007200000000007000007200000000700072000000000070070000077077000770770000000000000000000000000000000000000000000000000
-80000002088282000000008000222000002882000cc1c100000000c000111000001cc10000000000000000000444440004444400000000000000000000000000
-0800002089289820002802980289820002899820cc1ccc10001c01cc01ccc10001cccc10000000000444440044fff44044fff440044444000444440000000000
-008002000208998202898028289a98202899a982010cccc101ccc01c1cc7cc101ccc7cc10000000044fff4404f1ff1504f1ff15044fff44044fff44000000000
-000820000089a998889a988289a7a980899a7a9200cc7cccccc7ccc1cc777cc0ccc777c1007000704f1ff1500ffeddd50ffeddd54f1ff1504f1ff15000000000
-00028000089a7a9889a7a998899a98002889a9820cc777cccc777cccccc7cc001ccc7cc1007000700ffeddd5099fdf50099fdf500ffeddd50ffeddd500000000
-002008000289a982889a9982289980208208982001cc7cc1ccc7ccc11cccc010c10ccc1007670767099fdf500111170071111000099fdf50099fdf5000000000
-0200008000289820028998200289829889208200001ccc1001cccc1001ccc1cccc10c10006d606d6011117007000000000000700711110000111100000000000
-2000000800088800002882000028288008000000000ccc00001cc100001c1cc00c0000000d5d0d5d070000000000000000000000000070000700700000000000
+80000002088282000000008000222000002882000cc1c100000000c000111000001cc10000000000000000000044444000444440000000000000000000000000
+0800002089289820002802980289820002899820cc1ccc10001c01cc01ccc10001cccc100000000000444440044fff44044fff44004444400044444000000000
+008002000208998202898028289a98202899a982010cccc101ccc01c1cc7cc101ccc7cc100000000044fff4404f1ff1404f1ff14044fff44044fff4400000000
+000820000089a998889a988289a7a980899a7a9200cc7cccccc7ccc1cc777cc0ccc777c10070007004f1ff1400ffeddd00ffeddd04f1ff1404f1ff1400000000
+00028000089a7a9889a7a998899a98002889a9820cc777cccc777cccccc7cc001ccc7cc10070007000ffeddd0099fdf00099fdf000ffeddd00ffeddd00000000
+002008000289a982889a9982289980208208982001cc7cc1ccc7ccc11cccc010c10ccc10076707670099fdf000111170071111000099fdf00099fdf000000000
+0200008000289820028998200289829889208200001ccc1001cccc1001ccc1cccc10c10006d606d6001111700700000000000070071111000011110000000000
+2000000800088800002882000028288008000000000ccc00001cc100001c1cc00c0000000d5d0d5d007000000000000000000000000007000070070000000000
 06000000000000000000000000011170000111700001117001444000000000000004441000000000000000004224422442244224b3bb333333b3333311111111
 dd6111700661117000011170011cc720011cc720011cc7204414441001444410014441440000000000000000422222444222224433bb33333333333316616661
 0dd6c720ddd6c720011cc7201cccc7201cccc7201cccc7204764414444144144441446740000000000000000224224442242244433333b333b3b33b316516d51
