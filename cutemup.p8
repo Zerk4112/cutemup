@@ -43,11 +43,15 @@ function _draw()
 	for p in all(players) do
 		-- if (p.act) draw_coll_box(p.coll_box)
 	end
+	for e in all(entities) do
+		if (e.act) draw_coll_box(e.coll_box)
+	end
 	if (_cls) cls(1)
 
 	print('debug', cament.pos.x,cament.pos.y,8)
-	print(tostr(players[1].srtn))
-	print(players[1].sprflip)
+	print('entities: '..#entities)
+	-- print(tostr(players[1].srtn))
+	-- print(players[1].sprflip)
 	-- print(#aroutines)
 	-- print(players[1].mot.dx..","..players[1].mot.dy)
 	-- print('camera moving: '..tostr(cament.moving))
@@ -58,6 +62,7 @@ end
 -- player functions
 
 function init_players()
+	if (players~=nil) for p in all(players) do del(entities, p) end
 	players={}
 	prun = {18,19,20,21}
 	pstand = {31}
@@ -112,7 +117,7 @@ function create_bullet(_x,_y,_s,_a,_id)
 		update_coll_box(b)
 		check_collision(b)
 		move_entity(b)
-		if b.mot.dx~=dx or b.mot.dy~=dy then
+		if b.mot.dx~=dx or b.mot.dy~=dy or off_cam(b.pos.x, b.pos.y) then
 			clean_ent(b)
 		end
 		-- yield()
@@ -121,7 +126,6 @@ function create_bullet(_x,_y,_s,_a,_id)
 
 	end,1,true)
 	add(aroutines,b.behavior)
-	add(entities, b)
 	return b
 end
 
@@ -608,12 +612,12 @@ function yields(n) for i=1,n do yield() end end
 -->8
 -- entity functions
 function clean_ent(e)
-	del(entities, e)
 	del(routines,e.behavior)
 	del(aroutines,e.behavior)
 	del(routines,e.pathing)
 	del(aroutines,e.pathing)
 	del(aroutines, e.draw_rig)
+	del(entities, e)
 end
 
 function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
@@ -1017,13 +1021,10 @@ function can_move(a,dx,dy)
 end
 
 function off_cam(x,y)
-	if cament.pos.x>x or cament.pos.x+127<x then
+	if cament.pos.x>x or cament.pos.x+127<x or cament.pos.y>y or cament.pos.y+127<y then
 		return true
-	elseif cament.pos.y>y or cament.pos.y+127<y then
-		return true
-	else 
-		return false
 	end
+	return false
 end
 --checks an x,y pixel coordinate
 --against the map to see if it 
