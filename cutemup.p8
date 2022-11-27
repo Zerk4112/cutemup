@@ -134,7 +134,7 @@ function player_shoot(p)
 	local x,y = p.pos.x+3.5,p.pos.y+3.5
 	local a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
 	local ch = create_timer(function()
-		while p.shooting do
+		while btn(4, p.pid) do
 			local ox = 0
 			if (not p.sprflip) ox=7
 			x,y = p.pos.x+3.5,p.pos.y+3.5
