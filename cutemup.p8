@@ -40,15 +40,12 @@ function _draw()
     cls()
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
 	manage_routines(aroutines)
-	for p in all(players) do
-		-- if (p.act) draw_coll_box(p.coll_box)
-	end
 	for e in all(entities) do
-		if (e.act) draw_coll_box(e.coll_box)
+		-- if (e.act) draw_coll_box(e.coll_box)
 	end
 	if (_cls) cls(1)
 
-	print('debug', cament.pos.x,cament.pos.y,8)
+	print('debug', cament.pos.x,cament.pos.y,14)
 	print('entities: '..#entities)
 	-- print(tostr(players[1].srtn))
 	-- print(players[1].sprflip)
