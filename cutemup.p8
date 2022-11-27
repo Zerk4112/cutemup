@@ -15,11 +15,12 @@ function _init()
 	ai_steer_spd=0.070
 	max_ents=0
 	aroutines={}
+	drigs = {}
 	routines={}
 	entities={}
 	cament = create_ent({}, -1, {x=0,y=0,w=4,h=4}, _mot, _coll_box)
 	cament.coll_box = cmpnt_new_coll_box(64, 64, 10, 10, function() end)
-	del(aroutines, cament.draw_rig)
+	del(drigs, cament.draw_rig)
 	del(entities, cament)
 	init_players()
 	ents=2
@@ -39,6 +40,20 @@ end
 function _draw()
     cls()
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
+	
+	if not cament.moving then
+		local ordered={}
+		for obj in all(entities) do
+			ordered[flr(obj.pos.y)] = ordered[flr(obj.pos.y)] or {} -- ensure table is there
+			add(ordered[flr(obj.pos.y)],obj.draw_rig)
+		end
+		for i=cament.pos.y,cament.pos.y+127 do -- or whatever your min/max Y is
+			manage_routines(ordered[i])
+		end	
+	else
+		manage_routines(drigs)
+	end
+	-- manage_routines(drigs)
 	manage_routines(aroutines)
 	for e in all(entities) do
 		-- if (e.act) draw_coll_box(e.coll_box)
@@ -47,6 +62,9 @@ function _draw()
 
 	print('debug', cament.pos.x,cament.pos.y,14)
 	print('entities: '..#entities)
+	print('aroutines: '..#aroutines)
+	print('routines: '..#routines)
+	print('drigs: '..#drigs)
 	-- print(tostr(players[1].srtn))
 	-- print(players[1].sprflip)
 	-- print(#aroutines)
@@ -59,7 +77,7 @@ end
 -- player functions
 
 function init_players()
-	if (players~=nil) for p in all(players) do del(entities, p) end
+	if (players~=nil) for p in all(players) do clean_ent(p) end
 	players={}
 	prun = {18,19,20,21}
 	pstand = {31}
@@ -126,6 +144,8 @@ function create_bullet(_x,_y,_s,_a,_id)
 		end
 	end,1,true)
 	add(aroutines,b.behavior)
+	del(drigs,b.draw_rig)
+	b.draw_rig=nil
 	return b
 end
 
@@ -179,8 +199,14 @@ function update_controls(p)
 	--when the user tries to move,
 	--we only add the acceleration
 	--to the current speed.
-	if (btn(0,p.pid)) p.mot.dx-=p.mot.a
-	if (btn(1,p.pid)) p.mot.dx+=p.mot.a
+	if (btn(0,p.pid)) then
+		p.mot.dx-=p.mot.a 
+		if (not p.shooting) p.sprflip=true
+	end
+	if (btn(1,p.pid)) then 
+		p.mot.dx+=p.mot.a 
+		if (not p.shooting) p.sprflip=false
+	end
 	if (btn(2,p.pid)) p.mot.dy-=p.mot.a
 	if (btn(3,p.pid)) p.mot.dy+=p.mot.a 
 	if btn(4, p.pid) then
@@ -605,6 +631,7 @@ function manage_routine(routine)
 		if costatus(routine)=='dead' then
             del(aroutines, routine)
 			del(routines, routine)
+			del(drigs, routine)
 		end
 	end
 end
@@ -618,7 +645,7 @@ function clean_ent(e)
 	del(aroutines,e.behavior)
 	del(routines,e.pathing)
 	del(aroutines,e.pathing)
-	del(aroutines, e.draw_rig)
+	del(drigs, e.draw_rig)
 	del(entities, e)
 end
 
@@ -651,7 +678,8 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 	}
 	e.mot.oa=e.mot.a
 	e.draw_rig = ent_drawing_rig(e)
-	add(aroutines, e.draw_rig)
+	add(aroutines, e.shadow)
+	add(drigs, e.draw_rig)
 	add(entities, e)
 	return e
 end
@@ -661,16 +689,15 @@ end
 function draw_entity(e,i)
 	local ds = function()
 		-- printh('draw print index: '..i)
-		spr(e.sprtab[i],e.pos.x, e.pos.y,1,1, e.sprflip)
-		e.prev_tab = e.sprtab
-	end
-	if not e.shooting then
-		if e.mot.dx<-0.01 then
-			e.sprflip = true
-		elseif e.mot.dx>0.01 then
-			e.sprflip = false
+		
+		if e.act then
+			local x,y,w,h = e.pos.x,e.pos.y,e.pos.w,e.pos.h
+			ovalfill(x,y+h,x+w,y+h+2,1)
+			spr(e.sprtab[i],e.pos.x, e.pos.y,1,1, e.sprflip)
+			e.prev_tab = e.sprtab
 		end
 	end
+
 	if e.animdelay > 1 then
 		for d=0, e.animdelay do
 			ds()
