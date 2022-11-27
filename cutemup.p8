@@ -45,7 +45,9 @@ function _draw()
 	end
 	if (_cls) cls(1)
 
-	-- print('debug', cament.pos.x,cament.pos.y,8)
+	print('debug', cament.pos.x,cament.pos.y,8)
+	print(tostr(players[1].srtn))
+	print(players[1].sprflip)
 	-- print(#aroutines)
 	-- print(players[1].mot.dx..","..players[1].mot.dy)
 	-- print('camera moving: '..tostr(cament.moving))
@@ -66,13 +68,13 @@ function init_players()
 		p.coll_box = cmpnt_new_coll_box(2, 2, 4, 4, player_collide)
 		p.logic = create_timer(function()
 			if p.mot.dx<-0.1 or p.mot.dy < -0.1 or p.mot.dx > 0.1 or p.mot.dy > 0.1 then
-				if btn(4,p.pid) then
+				if p.shooting then
 					p.sprtab = psrun
 				else
 					p.sprtab = prun
 				end
 			else
-				if btn(4,p.pid) then
+				if p.shooting then
 					p.sprtab = psstand
 				else
 					p.sprtab = pstand
@@ -92,6 +94,27 @@ function player_collide(self, e)
 	-- end
 end
 
+function player_shoot(p)
+		p.ps = p.sprflip
+	local r = create_timer(function()
+		local i=0
+		while btn(4, p.pid) do
+			local ox = 0
+			i+=1
+			if i==10 then
+				i=0
+				if (not p.sprflip) ox=7
+				circfill(p.pos.x+ox, p.pos.y+4,1,8)
+			end
+			yield()
+		end
+		p.srtn=nil
+		p.shooting=false
+	end,1) 
+	p.srtn=r
+	add(aroutines, r)
+end
+
 function update_controls(p)
 	--when the user tries to move,
 	--we only add the acceleration
@@ -100,7 +123,14 @@ function update_controls(p)
 	if (btn(1,p.pid)) p.mot.dx+=p.mot.a
 	if (btn(2,p.pid)) p.mot.dy-=p.mot.a
 	if (btn(3,p.pid)) p.mot.dy+=p.mot.a 
-	if (btn(4, p.pid)) printh('z button pressed')
+	if btn(4, p.pid) then
+		p.shooting=true
+		if p.srtn == nil then 
+			player_shoot(p)
+		else
+			p.sprflip=p.ps
+		end
+	end
 	if (btn(5, p.pid)) printh('x button pressed')
 end
 
@@ -561,10 +591,12 @@ function draw_entity(e,i)
 		spr(e.sprtab[i],e.pos.x, e.pos.y,1,1, e.sprflip)
 		e.prev_tab = e.sprtab
 	end
-	if e.mot.dx<-0.01 then
-		e.sprflip = true
-	elseif e.mot.dx>0.01 then
-		e.sprflip=false
+	if not e.shooting then
+		if e.mot.dx<-0.01 then
+			e.sprflip = true
+		elseif e.mot.dx>0.01 then
+			e.sprflip = false
+		end
 	end
 	if e.animdelay > 1 then
 		for d=0, e.animdelay do
