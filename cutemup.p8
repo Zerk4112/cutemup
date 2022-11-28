@@ -94,6 +94,7 @@ function init_players()
 		p.chx,p.chy=0,0
 		-- p.coll_box = create_coll_box(2, 2, 4, 4, player_collide)
 		p.logic = create_timer(function()
+			
 			if p.mot.dx<-0.1 or p.mot.dy < -0.1 or p.mot.dx > 0.1 or p.mot.dy > 0.1 then
 				if p.shooting then
 					if p.sprhflip then
@@ -124,6 +125,7 @@ function init_players()
 					end
 				end
 			end
+			
 		end,1,true)
 		add(routines, p.logic)
 		add(players, p)
@@ -225,6 +227,9 @@ function update_controls(p)
 	--when the user tries to move,
 	--we only add the acceleration
 	--to the current speed.
+	if p.mot.dy <=0.1 and p.mot.dy >= -0.1 and not p.shooting then
+		p.sprhflip = false
+	end
 	if (btn(0,p.pid)) then
 		p.mot.dx-=p.mot.a 
 		if (not p.shooting) p.sprflip=true
