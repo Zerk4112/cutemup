@@ -227,24 +227,25 @@ function update_controls(p)
 	--when the user tries to move,
 	--we only add the acceleration
 	--to the current speed.
-	if p.mot.dy <=0.1 and p.mot.dy >= -0.1 and not p.shooting then
+	local ps = p.shooting
+	if p.mot.dy <=0.1 and p.mot.dy >= -0.1 and not ps then
 		p.sprhflip = false
 	end
 	if (btn(0,p.pid)) then
 		p.mot.dx-=p.mot.a 
-		if (not p.shooting) p.sprflip=true
+		if (not ps) p.sprflip=true
 	end
 	if (btn(1,p.pid)) then 
 		p.mot.dx+=p.mot.a 
-		if (not p.shooting) p.sprflip=false
+		if (not ps) p.sprflip=false
 	end
 	if (btn(2,p.pid)) then 
 		p.mot.dy-=p.mot.a 
-		if (not p.shooting) p.sprhflip=true
+		if (not ps) p.sprhflip=true
 
 	end
 	if (btn(3,p.pid)) then 
-		if (not p.shooting) p.sprhflip=false
+		if (not ps) p.sprhflip=false
 		p.mot.dy+=p.mot.a
 	end
 	if btn(4, p.pid) then
