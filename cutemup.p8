@@ -54,7 +54,7 @@ function _draw()
 	-- manage_routines(drigs)
 	manage_routines(aroutines)
 	for e in all(entities) do
-		-- if (e.act) draw_coll_box(e.coll_box)
+		if (e.act) draw_coll_box(e.coll_box)
 	end
 	if (_cls) cls(1)
 
@@ -322,8 +322,8 @@ function create_sml_goomba(_x,_y)
 		w=7,
 		h=7
 	})
-	p.coll_box=create_coll_box(-1, 5, 9, 5, function()  end)
-	p.mot.mspd=0.2
+	p.coll_box=create_coll_box(-1, 2, 9, 8, function()  end)
+	p.mot.mspd=0.4
 	p.animdelay=15
 	-- p.coll_box.coll_callback = function(cb, e) 
 	-- 	-- printh(tbl_dump(t))
@@ -396,16 +396,17 @@ function ai__path_to_players(e)
 	local ang = e.mot.ang -- current path angle of source entity
 	local col=9 -- debug path color
 	for n=-0.25,0.25, 0.25 do -- draw 3 pixels. One in front, and one on each side
-		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*6) -- define x for current pixel
-		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*6) -- define y for current pixel
-		-- circfill(tx,ty,1,col)
+		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*7) -- define x for current pixel
+		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*7)+3 -- define y for current pixel
+		circfill(tx,ty,1,col)
 		yield() -- yield processing back to main loop
 		for i, ent in pairs(entities) do -- loop through entities to see if any are colliding with path pixel
 			if e.pid ~= ent.pid and ent.pid>1 then -- If the entity is another enemy, then continue
 				if check_pos_collision(tx,ty, ent.coll_box) then -- if colliding with another enemy
 					if n==0 then -- if colliding enemy is in front, stop moving
 						e.mot.a=0
-						yield() -- yield processing back to main loop
+						-- print("oh no!",tx,ty,7)
+						-- yield() -- yield processing back to main loop
 					end
 					ai__steer(e,n) -- steer function to avoid clumping of mobs
 					yield() -- yield processing back to main loop
