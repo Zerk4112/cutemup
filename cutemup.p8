@@ -182,7 +182,7 @@ function player_shoot(p)
 	local x,y = p.pos.x+3.5,p.pos.y+3.5
 	local a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
 	local ch = create_timer(function()
-		while btn(4, p.pid) do
+		while btn(5, p.pid) do
 			local ox = 0
 			if (not p.sprflip) ox=7
 			x,y = p.pos.x+3.5,p.pos.y+3.5
@@ -196,7 +196,7 @@ function player_shoot(p)
 	end,1) 
 	local r = create_timer(function()
 		local i=p.shtdelay
-		while btn(4, p.pid) do
+		while btn(5, p.pid) do
 			local ox = 0
 			i+=1
 			if i>=p.shtdelay then
@@ -248,7 +248,7 @@ function update_controls(p)
 		if (not ps) p.sprhflip=false
 		p.mot.dy+=p.mot.a
 	end
-	if btn(4, p.pid) then
+	if btn(5, p.pid) then
 		p.shooting=true
 		if p.srtn == nil then 
 			player_shoot(p)
@@ -257,7 +257,7 @@ function update_controls(p)
 			p.sprhflip=p.psh
 		end
 	end
-	if (btn(5, p.pid)) printh('x button pressed')
+	if (btn(4, p.pid)) printh('x button pressed')
 end
 
 function tbl_dump(o)
