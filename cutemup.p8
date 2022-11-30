@@ -323,7 +323,7 @@ function create_sml_goomba(_x,_y)
 		h=7
 	})
 	p.coll_box=create_coll_box(-1, 2, 9, 8, function()  end)
-	p.mot.mspd=0.4
+	p.mot.mspd=0.3
 	p.animdelay=15
 	-- p.coll_box.coll_callback = function(cb, e) 
 	-- 	-- printh(tbl_dump(t))
@@ -396,8 +396,8 @@ function ai__path_to_players(e)
 	local ang = e.mot.ang -- current path angle of source entity
 	local col=9 -- debug path color
 	for n=-0.25,0.25, 0.25 do -- draw 3 pixels. One in front, and one on each side
-		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*7) -- define x for current pixel
-		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*7)+3 -- define y for current pixel
+		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*5) -- define x for current pixel
+		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*5)+3 -- define y for current pixel
 		circfill(tx,ty,1,col)
 		yield() -- yield processing back to main loop
 		for i, ent in pairs(entities) do -- loop through entities to see if any are colliding with path pixel
