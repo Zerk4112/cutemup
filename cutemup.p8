@@ -13,7 +13,7 @@ function _init()
 	menuitem(1,"Toggle Player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=0 
+	max_ents=040
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -56,7 +56,7 @@ function _draw()
 	-- manage_routines(drigs)
 	manage_routines(aroutines)
 	for e in all(entities) do
-		-- if (e.act) draw_coll_box(e.coll_box)
+		if (e.act) draw_coll_box(e.coll_box)
 	end
 	if (_cls) cls(1)
 
@@ -392,7 +392,7 @@ function create_sml_goomba(_x,_y)
 		ai__move_to_target(p)
 	end,1,true)
 	add(routines, p.behavior)
-	add(routines, p.pathing)
+	add(aroutines, p.pathing)
 	-- add(entities, p)
 	ents+=1
 	return p
@@ -436,7 +436,7 @@ function ai__path_to_players(e)
 	for n=-0.25,0.25, 0.25 do -- draw 3 pixels. One in front, and one on each side
 		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*6) -- define x for current pixel
 		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*6) -- define y for current pixel
-		-- circfill(tx,ty,1,col)
+		circfill(tx,ty,1,col)
 		yield() -- yield processing back to main loop
 		for i, ent in pairs(entities) do -- loop through entities to see if any are colliding with path pixel
 			if e.pid ~= ent.pid and ent.pid>1 then -- If the entity is another enemy, then continue
