@@ -13,7 +13,7 @@ function _init()
 	menuitem(1,"Toggle Player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=040
+	max_ents=8
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -56,17 +56,17 @@ function _draw()
 	-- manage_routines(drigs)
 	manage_routines(aroutines)
 	for e in all(entities) do
-		if (e.act) draw_coll_box(e.coll_box)
+		-- if (e.act) draw_coll_box(e.coll_box)
 	end
 	if (_cls) cls(1)
 
-	print('debug', cament.pos.x,cament.pos.y,14)
-	print('p.dodging: '..tostr(players[1].dodging))
-	print('entities: '..#entities)
-	print('aroutines: '..#aroutines)
-	print('routines: '..#routines)
-	print('drigs: '..#drigs)
-	print(players[1].sprhflip)
+	-- print('debug', cament.pos.x,cament.pos.y,14)
+	-- print('p.dodging: '..tostr(players[1].dodging))
+	-- print('entities: '..#entities)
+	-- print('aroutines: '..#aroutines)
+	-- print('routines: '..#routines)
+	-- print('drigs: '..#drigs)
+	-- print(players[1].sprhflip)
 
 	-- print(tostr(players[1].srtn))
 	-- print(players[1].sprflip)
@@ -242,7 +242,7 @@ function player_shoot(p)
 					circfill(px, py,1,7)
 					yield()
 				end
-				create_bullet(p.chx, p.chy,2,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
+				create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,2,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
 				yield()
 			end
 			yield()
@@ -360,8 +360,8 @@ function create_sml_goomba(_x,_y)
 		w=7,
 		h=7
 	})
-	p.coll_box=create_coll_box(-1, 5, 9, 5, function()  end)
-	p.mot.mspd=0.2
+	p.coll_box=create_coll_box(-1, 2, 9, 8, function()  end)
+	p.mot.mspd=0.35
 	p.animdelay=15
 	-- p.coll_box.coll_callback = function(cb, e) 
 	-- 	-- printh(tbl_dump(t))
@@ -392,7 +392,7 @@ function create_sml_goomba(_x,_y)
 		ai__move_to_target(p)
 	end,1,true)
 	add(routines, p.behavior)
-	add(aroutines, p.pathing)
+	add(routines, p.pathing)
 	-- add(entities, p)
 	ents+=1
 	return p
@@ -401,11 +401,11 @@ end
 function ai__steer(e, d)
 	local sspd = ai_steer_spd
 	-- printh(sspd)
-	if d==-0.25 then
+	if d<0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
 		yield()
-	elseif d==0.25 then
+	elseif d>0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang-=sspd
 		yield()
@@ -432,11 +432,11 @@ function ai__path_to_players(e)
 	local tang = oaget(e, targ) -- angle from source to target
 	local tx, ty -- undefined local variables for temp x and y
 	local ang = e.mot.ang -- current path angle of source entity
-	local col=9 -- debug path color
-	for n=-0.25,0.25, 0.25 do -- draw 3 pixels. One in front, and one on each side
-		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*6) -- define x for current pixel
-		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*6) -- define y for current pixel
-		circfill(tx,ty,1,col)
+	local col=8 -- debug path color
+	for n=-0.25,0.25, 0.10 do -- draw 3 pixels. One in front, and one on each side
+		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*e.pos.w/1.5) -- define x for current pixel
+		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*e.pos.h/1.5)+1 -- define y for current pixel
+		pset(tx,ty,col)
 		yield() -- yield processing back to main loop
 		for i, ent in pairs(entities) do -- loop through entities to see if any are colliding with path pixel
 			if e.pid ~= ent.pid and ent.pid>1 then -- If the entity is another enemy, then continue
