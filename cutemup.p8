@@ -13,7 +13,7 @@ function _init()
 	menuitem(1,"Toggle Player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=15
+	max_ents=0 
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -32,13 +32,12 @@ end
 function _update60()
 	if (current_scene~=nil and current_scene.update~=nil and not scene_switch) current_scene:update()
 	manage_routines()
-	
 end
 
 function _draw()
     cls()
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
-	
+	local o = {}
 	if not cament.moving then
 		local ordered={}
 		for obj in all(entities) do
@@ -46,8 +45,11 @@ function _draw()
 			add(ordered[flr(obj.pos.y)],obj.draw_rig)
 		end
 		for i=cament.pos.y,cament.pos.y+127 do -- or whatever your min/max Y is
-			manage_routines(ordered[i])
+			for k,r in pairs(ordered[i]) do
+				add(o,r)
+			end
 		end	
+		manage_routines(o)
 	else
 		manage_routines(drigs)
 	end
@@ -65,6 +67,7 @@ function _draw()
 	print('routines: '..#routines)
 	print('drigs: '..#drigs)
 	print(players[1].sprhflip)
+
 	-- print(tostr(players[1].srtn))
 	-- print(players[1].sprflip)
 	-- print(#aroutines)
@@ -198,8 +201,7 @@ function player_dodge(p)
 		p.mot.mspd = mspd
 		p.mot.dx=0
 		p.mot.dy=0
-		yields(5)
-
+		yield()
 		p.dodging=false
 		p.shooting=false
 	end,1) 
@@ -389,8 +391,8 @@ function create_sml_goomba(_x,_y)
 		ai__path_to_players(p)
 		ai__move_to_target(p)
 	end,1,true)
-	add(aroutines, p.behavior)
-	add(aroutines, p.pathing)
+	add(routines, p.behavior)
+	add(routines, p.pathing)
 	-- add(entities, p)
 	ents+=1
 	return p
