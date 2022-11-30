@@ -13,7 +13,7 @@ function _init()
 	menuitem(1,"Toggle Player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=10
+	max_ents=15
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -59,6 +59,7 @@ function _draw()
 	if (_cls) cls(1)
 
 	print('debug', cament.pos.x,cament.pos.y,14)
+	print('p.dodging: '..tostr(players[1].dodging))
 	print('entities: '..#entities)
 	print('aroutines: '..#aroutines)
 	print('routines: '..#routines)
@@ -89,6 +90,7 @@ function init_players()
 	pfrun = {42,43,44,45}
 	pfsrun = {26,27,28,29}
 	
+	pdodge={4,5,6,7,8,9,10,11}
 	for i=0,1 do
 		local p = create_ent(prun, i)
 		p.chx,p.chy=0,0
@@ -96,6 +98,7 @@ function init_players()
 		p.logic = create_timer(function()
 			
 			if p.mot.dx<-0.1 or p.mot.dy < -0.1 or p.mot.dx > 0.1 or p.mot.dy > 0.1 then
+				p.moving=true
 				if p.shooting then
 					if p.sprhflip then
 						p.sprtab = pfsrun
@@ -111,6 +114,7 @@ function init_players()
 					end
 				end
 			else
+				p.moving=false
 				if p.shooting then
 					if p.sprhflip then
 						p.sprtab = pfsstand
@@ -125,7 +129,7 @@ function init_players()
 					end
 				end
 			end
-			
+			if (p.dodging)p.sprtab=pdodge
 		end,1,true)
 		add(routines, p.logic)
 		add(players, p)
@@ -176,13 +180,39 @@ function create_bullet(_x,_y,_s,_a,_id)
 	return b
 end
 
+function player_dodge(p)
+	local dx,dy = p.mot.dx,p.mot.dy
+	local mspd = p.mot.mspd
+	local aspd = p.animdelay
+	printh(mspd)
+	if (not p.dodging) p.dodging=true
+	local r = create_timer(function()
+		p.animdelay = 3
+		p.mot.mspd = mspd*1.8
+		for f=1,32 do
+			p.mot.dx = dx*10
+			p.mot.dy = dy*10
+			yield()
+		end
+		p.animdelay = aspd
+		p.mot.mspd = mspd
+		p.mot.dx=0
+		p.mot.dy=0
+		yields(5)
+
+		p.dodging=false
+		p.shooting=false
+	end,1) 
+	add(aroutines, r)
+end
+
 function player_shoot(p)
 	p.ps = p.sprflip
 	p.psh = p.sprhflip
 	local x,y = p.pos.x+3.5,p.pos.y+3.5
 	local a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
 	local ch = create_timer(function()
-		while btn(5, p.pid) do
+		while btn(5, p.pid) and not p.dodging do
 			local ox = 0
 			if (not p.sprflip) ox=7
 			x,y = p.pos.x+3.5,p.pos.y+3.5
@@ -196,7 +226,7 @@ function player_shoot(p)
 	end,1) 
 	local r = create_timer(function()
 		local i=p.shtdelay
-		while btn(5, p.pid) do
+		while btn(5, p.pid) and not p.dodging do
 			local ox = 0
 			i+=1
 			if i>=p.shtdelay then
@@ -233,15 +263,15 @@ function update_controls(p)
 	end
 	if (btn(0,p.pid)) then
 		p.mot.dx-=p.mot.a 
-		if (not ps) p.sprflip=true
+		p.sprflip=true
 	end
 	if (btn(1,p.pid)) then 
 		p.mot.dx+=p.mot.a 
-		if (not ps) p.sprflip=false
+		p.sprflip=false
 	end
 	if (btn(2,p.pid)) then 
 		p.mot.dy-=p.mot.a 
-		if (not ps) p.sprhflip=true
+		p.sprhflip=true
 
 	end
 	if (btn(3,p.pid)) then 
@@ -251,13 +281,18 @@ function update_controls(p)
 	if btn(5, p.pid) then
 		p.shooting=true
 		if p.srtn == nil then 
-			player_shoot(p)
+			if (not p.dodging) player_shoot(p)
 		else
 			p.sprflip=p.ps
 			p.sprhflip=p.psh
 		end
 	end
-	if (btn(4, p.pid)) printh('x button pressed')
+	if (btn(4, p.pid)) then
+		
+		if not p.dodging and p.moving then
+			player_dodge(p)
+		end
+	end
 end
 
 function tbl_dump(o)
