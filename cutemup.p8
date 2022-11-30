@@ -13,7 +13,7 @@ function _init()
 	menuitem(1,"Toggle Player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=10
+	max_ents=040
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -32,13 +32,12 @@ end
 function _update60()
 	if (current_scene~=nil and current_scene.update~=nil and not scene_switch) current_scene:update()
 	manage_routines()
-	
 end
 
 function _draw()
     cls()
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
-	
+	local o = {}
 	if not cament.moving then
 		local ordered={}
 		for obj in all(entities) do
@@ -46,24 +45,29 @@ function _draw()
 			add(ordered[flr(obj.pos.y)],obj.draw_rig)
 		end
 		for i=cament.pos.y,cament.pos.y+127 do -- or whatever your min/max Y is
-			manage_routines(ordered[i])
+			for k,r in pairs(ordered[i]) do
+				add(o,r)
+			end
 		end	
+		manage_routines(o)
 	else
 		manage_routines(drigs)
 	end
 	-- manage_routines(drigs)
 	manage_routines(aroutines)
 	for e in all(entities) do
-		-- if (e.act) draw_coll_box(e.coll_box)
+		if (e.act) draw_coll_box(e.coll_box)
 	end
 	if (_cls) cls(1)
 
 	print('debug', cament.pos.x,cament.pos.y,14)
+	print('p.dodging: '..tostr(players[1].dodging))
 	print('entities: '..#entities)
 	print('aroutines: '..#aroutines)
 	print('routines: '..#routines)
 	print('drigs: '..#drigs)
 	print(players[1].sprhflip)
+
 	-- print(tostr(players[1].srtn))
 	-- print(players[1].sprflip)
 	-- print(#aroutines)
@@ -89,6 +93,7 @@ function init_players()
 	pfrun = {42,43,44,45}
 	pfsrun = {26,27,28,29}
 	
+	pdodge={4,5,6,7,8,9,10,11}
 	for i=0,1 do
 		local p = create_ent(prun, i)
 		p.chx,p.chy=0,0
@@ -96,6 +101,7 @@ function init_players()
 		p.logic = create_timer(function()
 			
 			if p.mot.dx<-0.1 or p.mot.dy < -0.1 or p.mot.dx > 0.1 or p.mot.dy > 0.1 then
+				p.moving=true
 				if p.shooting then
 					if p.sprhflip then
 						p.sprtab = pfsrun
@@ -111,6 +117,7 @@ function init_players()
 					end
 				end
 			else
+				p.moving=false
 				if p.shooting then
 					if p.sprhflip then
 						p.sprtab = pfsstand
@@ -125,7 +132,7 @@ function init_players()
 					end
 				end
 			end
-			
+			if (p.dodging)p.sprtab=pdodge
 		end,1,true)
 		add(routines, p.logic)
 		add(players, p)
@@ -176,13 +183,38 @@ function create_bullet(_x,_y,_s,_a,_id)
 	return b
 end
 
+function player_dodge(p)
+	local dx,dy = p.mot.dx,p.mot.dy
+	local mspd = p.mot.mspd
+	local aspd = p.animdelay
+	printh(mspd)
+	if (not p.dodging) p.dodging=true
+	local r = create_timer(function()
+		p.animdelay = 3
+		p.mot.mspd = mspd*1.8
+		for f=1,32 do
+			p.mot.dx = dx*10
+			p.mot.dy = dy*10
+			yield()
+		end
+		p.animdelay = aspd
+		p.mot.mspd = mspd
+		p.mot.dx=0
+		p.mot.dy=0
+		yield()
+		p.dodging=false
+		p.shooting=false
+	end,1) 
+	add(aroutines, r)
+end
+
 function player_shoot(p)
 	p.ps = p.sprflip
 	p.psh = p.sprhflip
 	local x,y = p.pos.x+3.5,p.pos.y+3.5
 	local a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
 	local ch = create_timer(function()
-		while btn(4, p.pid) do
+		while btn(5, p.pid) and not p.dodging do
 			local ox = 0
 			if (not p.sprflip) ox=7
 			x,y = p.pos.x+3.5,p.pos.y+3.5
@@ -196,7 +228,7 @@ function player_shoot(p)
 	end,1) 
 	local r = create_timer(function()
 		local i=p.shtdelay
-		while btn(4, p.pid) do
+		while btn(5, p.pid) and not p.dodging do
 			local ox = 0
 			i+=1
 			if i>=p.shtdelay then
@@ -227,36 +259,42 @@ function update_controls(p)
 	--when the user tries to move,
 	--we only add the acceleration
 	--to the current speed.
-	if p.mot.dy <=0.1 and p.mot.dy >= -0.1 and not p.shooting then
+	local ps = p.shooting
+	if p.mot.dy <=0.1 and p.mot.dy >= -0.1 and not ps then
 		p.sprhflip = false
 	end
 	if (btn(0,p.pid)) then
 		p.mot.dx-=p.mot.a 
-		if (not p.shooting) p.sprflip=true
+		p.sprflip=true
 	end
 	if (btn(1,p.pid)) then 
 		p.mot.dx+=p.mot.a 
-		if (not p.shooting) p.sprflip=false
+		p.sprflip=false
 	end
 	if (btn(2,p.pid)) then 
 		p.mot.dy-=p.mot.a 
-		if (not p.shooting) p.sprhflip=true
+		p.sprhflip=true
 
 	end
 	if (btn(3,p.pid)) then 
-		if (not p.shooting) p.sprhflip=false
+		if (not ps) p.sprhflip=false
 		p.mot.dy+=p.mot.a
 	end
-	if btn(4, p.pid) then
+	if btn(5, p.pid) then
 		p.shooting=true
 		if p.srtn == nil then 
-			player_shoot(p)
+			if (not p.dodging) player_shoot(p)
 		else
 			p.sprflip=p.ps
 			p.sprhflip=p.psh
 		end
 	end
-	if (btn(5, p.pid)) printh('x button pressed')
+	if (btn(4, p.pid)) then
+		
+		if not p.dodging and p.moving then
+			player_dodge(p)
+		end
+	end
 end
 
 function tbl_dump(o)
@@ -353,7 +391,7 @@ function create_sml_goomba(_x,_y)
 		ai__path_to_players(p)
 		ai__move_to_target(p)
 	end,1,true)
-	add(aroutines, p.behavior)
+	add(routines, p.behavior)
 	add(aroutines, p.pathing)
 	-- add(entities, p)
 	ents+=1
@@ -398,7 +436,7 @@ function ai__path_to_players(e)
 	for n=-0.25,0.25, 0.25 do -- draw 3 pixels. One in front, and one on each side
 		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*6) -- define x for current pixel
 		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*6) -- define y for current pixel
-		-- circfill(tx,ty,1,col)
+		circfill(tx,ty,1,col)
 		yield() -- yield processing back to main loop
 		for i, ent in pairs(entities) do -- loop through entities to see if any are colliding with path pixel
 			if e.pid ~= ent.pid and ent.pid>1 then -- If the entity is another enemy, then continue
@@ -1283,3 +1321,4 @@ __map__
 __sfx__
 000100000a63000630006300061000610006100061000610016100063000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00010000100201102013020150201602016020150201401011010100001800016000160001700019000000001a000000001a0001b0001b0000000000000000000000000000000000000000000000000000000000
+0001000025020280202a0202d02017020180001c0001f00022000240002600026000230001c000170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
