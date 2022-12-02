@@ -14,7 +14,7 @@ function _init()
 	menuitem(2,"toggle debug", function() debug = not debug end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=1
+	max_ents=20
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -346,9 +346,9 @@ function ai__rotate_to_target(e)
 	end
 
 	
-	if closestuniverse>e.mot.ang+ai_steer_spd then
+	if closestuniverse>e.mot.ang then
 		e.mot.ang+=ai_steer_spd
-	elseif closestuniverse<e.mot.ang-ai_steer_spd then
+	elseif closestuniverse<e.mot.ang then
 		e.mot.ang-=ai_steer_spd
 	end
 
@@ -359,8 +359,8 @@ function ai__rotate_to_target(e)
 end
 
 function create_small_wander(_x,_y, _sprtab)
-	-- local sprtab = _sprtab or {71,72,71,70}
-	local sprtab = _sprtab or {112,113,114,115}
+	local sprtab = _sprtab or {71,72,71,70}
+	-- local sprtab = _sprtab or {112,113,114,115}
 	local p = create_ent(sprtab, ents, {
 		x=_x, --x
 		y=_y, --y,
@@ -944,7 +944,7 @@ end
 function init_stage1()
 	music(0)
 	for i=1, max_ents do
-		create_small_wander(randbi(16,100), randbi(16,100))
+		create_small_wander(randbi(16,100), randbi(24,100))
 	end
 	init_players()
 	players[2].act=false
