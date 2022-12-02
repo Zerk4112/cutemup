@@ -215,24 +215,23 @@ end
 function player_shoot(p)
 	p.ps = p.sprflip
 	p.psh = p.sprhflip
-	local x,y = p.pos.x+3.5,p.pos.y+3.5
-	local a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
 	local ch = create_timer(function()
 		while btn(5, p.pid) and not p.dodging do
-			local ox = 0
-			if (not p.sprflip) ox=7
-			x,y = p.pos.x+3.5,p.pos.y+3.5
-			dx,dy = cos(a)*10, sin(a)*10
-			local nx,ny = x+dx,y+dy
-			p.chx,p.chy = nx,ny
-			circ(nx,ny,1,10)
-			circ(nx,ny,4,8)
+			circ(p.chx,p.chy,1,10)
+			circ(p.chx,p.chy,4,8)
 			yield()
 		end
 	end,1) 
 	local r = create_timer(function()
 		local i=p.shtdelay
+		local x,y = p.pos.x+3.5,p.pos.y+3.5
+		local a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
+
 		while btn(5, p.pid) and not p.dodging do
+			x,y = p.pos.x+3.5,p.pos.y+3.5
+			dx,dy = cos(a)*10, sin(a)*10
+			local nx,ny = x+dx,y+dy
+			p.chx,p.chy = nx,ny
 			local ox = 0
 			i+=1
 			if i>=p.shtdelay then
@@ -240,14 +239,14 @@ function player_shoot(p)
 				if (not p.sprflip) ox=7
 				local px,py = p.pos.x+ox, p.pos.y+4
 				sfx(0)
-				for k=0,2 do -- muzzle flash
-					circfill(px, py,3,8)
-					circfill(px, py,2,10)
-					circfill(px, py,1,7)
-					yield()
-				end
+				-- for k=0,2 do -- muzzle flash
+				-- 	circfill(px, py,3,8)
+				-- 	circfill(px, py,2,10)
+				-- 	circfill(px, py,1,7)
+				-- 	yield()
+				-- end
+				-- yield()
 				create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,2,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
-				yield()
 			end
 			yield()
 		end
@@ -256,7 +255,7 @@ function player_shoot(p)
 	end,1) 
 	p.srtn=r
 	add(aroutines, ch)
-	add(aroutines, r)
+	add(routines, r)
 end
 
 function update_controls(p)
@@ -285,8 +284,9 @@ function update_controls(p)
 		p.mot.dy+=p.mot.a
 	end
 	if btn(5, p.pid) then
-		p.shooting=true
+		-- p.shooting=true
 		if p.srtn == nil then 
+			p.shooting=true
 			if (not p.dodging) player_shoot(p)
 		else
 			p.sprflip=p.ps
@@ -839,7 +839,7 @@ function move_entity(p)
 		--until we find a new position
 		--that the player can move to.
 		while (not can_move(p,tdx,tdy)) do
-			printh(p.pid..': cant move')
+			-- printh(p.pid..': cant move')
 			--if the amount of x movement
 			--has been shortened so much
 			--that it's practically 0,
