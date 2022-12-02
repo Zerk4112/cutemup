@@ -254,8 +254,9 @@ function player_shoot(p)
 		p.shooting=false
 	end,1) 
 	p.srtn=r
-	add(aroutines, ch)
 	add(routines, r)
+	add(aroutines, ch)
+
 end
 
 function update_controls(p)
@@ -918,7 +919,11 @@ function init_scoreboard(p)
 		local sx,sy = cament.pos.x+ox,cament.pos.y
 		rectfill(p.sx+1, p.sy+1, p.sx+60,p.sy+12, sc)
 		rect(p.sx, p.sy, p.sx+61,p.sy+13, 0)
-		spr(128,p.sx+2,p.sy+3)
+		if p.act then
+			spr(128,p.sx+2,p.sy+3)
+		else
+			hor_wave_print("🅾️  to join!",p.sx+5,p.sy+4,7,2,t(),1.5) 
+		end
 	end,1,true)
 	add(routines, ur)
 	
