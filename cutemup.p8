@@ -20,7 +20,6 @@ function _init()
 	routines={}
 	entities={}
 	cament = create_ent({}, -1, {x=0,y=0,w=4,h=4}, _mot, _coll_box)
-	-- cament.coll_box = create_coll_box(64, 64, 10, 10, function() end)
 	del(drigs, cament.draw_rig)
 	del(entities, cament)
 	init_players()
@@ -68,12 +67,6 @@ function _draw()
 		print('routines: '..#routines)
 		print('drigs: '..#drigs)
 		print(players[1].sprhflip)
-
-		-- print(tostr(players[1].srtn))
-		-- print(players[1].sprflip)
-		-- print(#aroutines)
-		-- print(players[1].mot.dx..","..players[1].mot.dy)
-		-- print('camera moving: '..tostr(cament.moving))
 	end
 	
 end
@@ -104,7 +97,6 @@ function init_players()
 		p.stats.hp=3
 		p.chx,p.chy=0,0
 		if (i==1)add(p.pal, {9,12})
-		-- p.coll_box = create_coll_box(2, 2, 4, 4, player_collide)
 		p.logic = create_timer(function()
 			
 			if p.mot.dx<-0.1 or p.mot.dy < -0.1 or p.mot.dx > 0.1 or p.mot.dy > 0.1 then
@@ -169,8 +161,6 @@ function create_bullet(_x,_y,_s,_a,_id)
 		ang=_a
 	})
 	b.behavior = create_timer(function()
-		-- update_coll_box(b)
-		-- check_collision(b)
 		local entshot = false
 		move_entity(b)
 		local bx,by = b.pos.x,b.pos.y
@@ -247,7 +237,6 @@ function player_death(p)
 end
 
 function player_takedam(p,e)
-	-- printh('player_takedam')
 	if not p.td then
 		p.td=true
 		
@@ -261,7 +250,6 @@ function player_takedam(p,e)
 				p.mot.dx=dx
 				p.mot.dy=dy
 				yield()
-				-- printh(dx.."/"..dy)
 			end
 			for t=0,16 do
 				yield()
@@ -292,7 +280,7 @@ function player_shoot(p)
 			dx,dy = cos(a)*10, sin(a)*10
 			p.chx,p.chy = x+dx,y+dy
 			local ox = 0
-			if (i==0)create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
+			if (i==0)sfx(0) create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
 
 			i+=1
 			if (btn(5,p.pid) and i==p.shtdelay) i=0
@@ -316,20 +304,6 @@ function player_shoot(p)
 				del(aroutines, ch)
 				chr=nil
 			end
-			-- if i>=p.shtdelay then
-				-- i=0
-				-- if (not p.sprflip) ox=7
-				-- local px,py = p.pos.x+ox, p.pos.y+4
-				-- sfx(0)
-				-- for k=0,2 do -- muzzle flash
-				-- 	circfill(px, py,3,8)
-				-- 	circfill(px, py,2,10)
-				-- 	circfill(px, py,1,7)
-				-- 	yield()
-				-- end
-				-- yield()
-				-- create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
-			-- end
 			yield()
 		end
 		p.srtn=nil
@@ -349,9 +323,6 @@ function check_respawn(p)
 end
 
 function update_controls(p)
-	--when the user tries to move,
-	--we only add the acceleration
-	--to the current speed.
 	local ps = p.shooting
 	if p.mot.dy <=0.1 and p.mot.dy >= -0.1 and not ps then
 		p.sprhflip = false
@@ -478,14 +449,6 @@ function create_small_wander(_x,_y, _sprtab)
 		-- printh(tbl_dump(t))
 		if e.pid <2 then
 			if (not e.dying and not e.dead)player_takedam(e,p)
-		else
-			-- printh('touching other enemy')
-			-- local tx,ty,ta
-			-- ta = oaget(p,e)
-			-- tx = e.pos.x+cos(ta)*8
-			-- ty = e.pos.y+sin(ta)*8
-			-- p.pos.x = tx
-			-- p.pos.y = ty
 		end
 	end
 	p.behavior=create_timer(function()
@@ -508,17 +471,12 @@ end
 
 function ai__steer(e, d)
 	local sspd = ai_steer_spd+0.1
-	-- printh(sspd)
 	if d<0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
-		-- yield()
 	elseif d>0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang-=sspd
-		-- yield()
-	-- elseif d==0 then
-	-- 	e.mot.ang=e.mot.ang/2
 	end
 	
 	if (e.mot.ang>1) e.mot.ang=0
@@ -553,20 +511,13 @@ function ai__path_to_players(e)
 			if e.pid ~= ent.pid and ent.pid>1 then -- If the entity is another enemy, then continue
 				if check_pos_collision(tx,ty, ent.coll_box) then -- if colliding with another enemy
 
-					-- if n==0 then -- if colliding enemy is in front, stop moving
-					-- 	e.mot.a=0
-					-- 	col=9
-					-- end
 					ai__steer(e,n) -- steer function to avoid clumping of mobs
-					-- yield() -- yield processing back to main loop
 				else
 					e.mot.a=e.mot.oa -- if nothing is colliding, reset accelleration back to default. needs refactoring for stats!
 				end
 			end
 		end
 		if (debug) circfill(tx,ty,1,7)
-
-		-- yield() -- yield processing back to main loop
 	end
 end
 
@@ -908,68 +859,23 @@ function move_entity(p)
 	p.context_show=false
 	
 
-	--if we acceleration keeps
-	--getting added, they will just
-	--speed up forever. so we need
-	--to limit the speed to a max
-	--speed in both horizontal and
-	--vertical directions.
 	p.mot.dx=mid(-p.mot.mspd,p.mot.dx,p.mot.mspd)
 	p.mot.dy=mid(-p.mot.mspd,p.mot.dy,p.mot.mspd)
 
-	--before doing any movement,
-	--just check if they are next
-	--to a wall, and if so, don't
-	--let allow movement in that
-	--direction.
 	wall_check(p)
 
-	--before the player is moved,
-	--movement needs to be checked
-	--to see if the player actually
-	--can move in that direction.
 	if (can_move(p,p.mot.dx,p.mot.dy)) then
-		--actually move the player to
-		--the new location
 		p.pos.x+=p.mot.dx
 		p.pos.y+=p.mot.dy
-	
-	--but if the player cannot move
-	--into that spot, find out how
-	--close they can get and move
-	--them there instead.
 	else
-		
-		--create temporary variables
-		--to store how far the player
-		--is trying to move.
 		tdx=p.mot.dx
 		tdy=p.mot.dy
-		
-		--now we're going to make
-		--tdx,tdy shorter and shorter
-		--until we find a new position
-		--that the player can move to.
 		while (not can_move(p,tdx,tdy)) do
-			-- printh(p.pid..': cant move')
-			--if the amount of x movement
-			--has been shortened so much
-			--that it's practically 0,
-			--just set it to 0.
 			if (abs(tdx)<=0.1) then
 				tdx=0
-			
-			--but if it's not too small,
-			--make it 90% of what it was
-			--before. (this shortens the
-			--amount the player is trying
-			--to move in that direction.)
 			else
 				tdx*=0.9
 			end
-			
-			--do the same thing for y
-			--movement.
 			if (abs(tdy)<=0.1) then
 				tdy=0
 			else
@@ -982,35 +888,16 @@ function move_entity(p)
 
 			end
 		end
-
-		--now that we've shorted the
-		--distance the player is
-		--trying to move to something
-		--actually possible, actually
-		--move the player to that new
-		--shortened distance.
 		p.pos.x+=tdx
 		p.pos.y+=tdy
 	end 
-	
-	--if the player's still moving,
-	--then slow them down just a
-	--bit using the drag amount.
 	if (abs(p.mot.dx)>0) p.mot.dx*=p.mot.drg
 	if (abs(p.mot.dy)>0) p.mot.dy*=p.mot.drg
-	
-	--if they are going slow enough
-	--in a particular direction,
-	--just bring them to a halt.
 	if (abs(p.mot.dx)<0.01) p.mot.dx=0
 	if (abs(p.mot.dy)<0.01) p.mot.dy=0
 
 	pi=3.14
 end
-
-
--->8
--- mapper functions
 
 -->8
 -- stage1 functions
@@ -1182,15 +1069,6 @@ function sqr(x) return x*x end
 -->8
 --collision functions
 
---this function takes an object
---and a speed in the x and y
---directions. it uses those
---to check the four corners of
---the object to see it can move
---into that spot. (a map tile
---marked as solid would prevent
---movement into that spot.)
-
 function create_coll_box(_cx, _cy, _cw, _ch, _coll_callback)
     local coll_box = {
         cx = _cx,
@@ -1218,39 +1096,28 @@ function simple_coll_check(cb1, cb2)
 	cb1.cx_l<=cb2.cx_r) and
 	(cb1.cy_b>=cb2.cy_t and
 	cb1.cy_t<=cb2.cy_b)
-	-- printh('simple_coll_check: '..tostr(touching))
 	return touching
 end
 
 function check_collision(e)
-	-- this function specifically checks the collision between existing entities in the world
     
     collide = false
-    -- if e.pid<2 then
-		for i, tar in pairs(entities) do
-			if tar.act==true and e.act==true and tar.pid~=e.pid then
-				if tar.coll_box~=nil then
-					if simple_coll_check(e.coll_box, tar.coll_box) then
-							e.coll_box:coll_callback(tar)
-							-- printh(tar.pid)
-					end
+	for i, tar in pairs(entities) do
+		if tar.act==true and e.act==true and tar.pid~=e.pid then
+			if tar.coll_box~=nil then
+				if simple_coll_check(e.coll_box, tar.coll_box) then
+						e.coll_box:coll_callback(tar)
 				end
 			end
 		end
-	-- end
+	end
     return collide
 end
 
 function draw_coll_box(coll_box)
-    -- top
     line(coll_box.cx_l,coll_box.cy_t,coll_box.cx_r,coll_box.cy_t,3)
-    --bottom
     line(coll_box.cx_l,coll_box.cy_b,coll_box.cx_r,coll_box.cy_b,14)
-
-    --left
     line(coll_box.cx_l,coll_box.cy_t,coll_box.cx_l,coll_box.cy_b,12)
-
-    --right
     line(coll_box.cx_r,coll_box.cy_t,coll_box.cx_r,coll_box.cy_b,2)
 
 end
@@ -1263,27 +1130,14 @@ function update_coll_box(e)
 end
 
 function can_move(a,dx,dy)
-	
-	--create variables for the
-	--left, right, top, and bottom
-	--coordinates of where the
-	--object is trying to be.
 	local nx_l=a.pos.x+dx       --lft
 	local nx_r=a.pos.x+dx+a.pos.w   --rgt
 	local ny_t=a.pos.y+dy       --top
 	local ny_b=a.pos.y+dy+a.pos.h   --btm
-
-	--now check each corner of
-	--where the object is trying to
-	--be and see if that spot is
-	--solid or not.
 	local top_left_solid=solid(nx_l,ny_t)
 	local btm_left_solid=solid(nx_l,ny_b)
 	local top_right_solid=solid(nx_r,ny_t)
 	local btm_right_solid=solid(nx_r,ny_b)
-
-	--if all of those locations are
-	--not solid, the object can
 	return not (top_left_solid or
 			btm_left_solid or
 			top_right_solid or
@@ -1296,96 +1150,42 @@ function off_cam(x,y)
 	end
 	return false
 end
---checks an x,y pixel coordinate
---against the map to see if it 
---can be walked on or not
 function solid(x,y)
-
- --pixel coords -> map coords
  local map_x=flr(x/8)
  local map_y=flr(y/8)
- 
- --what sprite is at that spot?
  local map_sprite=mget(map_x,map_y)
- 
- --what flag does it have?
  local flag=fget(map_sprite)
-
- --if the flag is 1, it's solid
  return flag==1
 end
 
---this checks to see if the
---player is next to a wall. if
---so, don't let them try to move
---in that direction.
 function wall_check(a)
- 
- --going left?
- if (a.mot.dx<0) then
-  --check both left corners for
-  --a wall.
-  local wall_top_left=solid(a.pos.x-1,a.pos.y)
-  local wall_btm_left=solid(a.pos.x-1,a.pos.y+a.pos.h)
+	if (a.mot.dx<0) then
+		local wall_top_left=solid(a.pos.x-1,a.pos.y)
+		local wall_btm_left=solid(a.pos.x-1,a.pos.y+a.pos.h)
+		if (wall_top_left or wall_btm_left) then
+			a.mot.dx=0
+		end
+	elseif (a.mot.dx>0) then
+		local wall_top_right=solid(a.pos.x+a.pos.w+1,a.pos.y)
+		local wall_btm_right=solid(a.pos.x+a.pos.w+1,a.pos.y+a.pos.h)
+	if (wall_top_right or wall_btm_right) then
+		a.mot.dx=0
+	end
+end
 
-  --if there is a wall in that
-  --direction, set x movement
-  --to 0.
-  if (wall_top_left or wall_btm_left) then
-   a.mot.dx=0
-  end
-  
- --going right?
- elseif (a.mot.dx>0) then
-  --check both right corners for
-  --a wall.
-  local wall_top_right=solid(a.pos.x+a.pos.w+1,a.pos.y)
-  local wall_btm_right=solid(a.pos.x+a.pos.w+1,a.pos.y+a.pos.h)
-
-  --if there is a wall in that
-  --direction, set x movement
-  --to 0.
-  if (wall_top_right or wall_btm_right) then
-   a.mot.dx=0
-  end
- end
-
- --going up?
- if (a.mot.dy<0) then
-  --check both top corners for
-  --a wall.
-  local wall_top_left=solid(a.pos.x,a.pos.y-1)
-  local wall_top_right=solid(a.pos.x+a.pos.w,a.pos.y-1)
-
-  --if there is a wall in that
-  --direction, set y movement
-  --to 0.
-  if (wall_top_left or wall_top_right) then
-   a.mot.dy=0
-  end
-  
- --going down?
- elseif (a.mot.dy>0) then
-  --check both bottom corners 
-  --for a wall.
-  local wall_btm_left=solid(a.pos.x,a.pos.y+a.pos.h+1)
-  local wall_btm_right=solid(a.pos.x+a.pos.w,a.pos.y+a.pos.h+1)
-
-  --if there is a wall in that
-  --direction, set y movement
-  --to 0.
-  if (wall_btm_right or wall_btm_left) then
-   a.mot.dy=0
-  end
- end
-
- --the two commented lines of 
- --code below do the same thing
- --as all the lines of code 
- --above, but are just condensed
-	
-	--if ((a.mot.dx<0 and (solid(a.pos.x-1,a.pos.y) or solid(a.pos.x-1,a.pos.y+a.pos.h-1))) or (a.mot.dx>0 and (solid(a.pos.x+a.pos.w,a.pos.y) or solid(a.pos.x+a.pos.w,a.pos.y+a.pos.h-1)))) p.mot.dx=0
-	--if ((a.mot.dy<0 and (solid(a.pos.x,a.pos.y-1) or solid(a.pos.x+a.pos.h-1,a.pos.y-1))) or (a.mot.dy>0 and (solid(a.pos.x,a.pos.y+a.pos.h) or solid(a.pos.x+a.pos.w-1,a.pos.y+a.pos.h)))) p.mot.dy=0
+	if (a.mot.dy<0) then
+		local wall_top_left=solid(a.pos.x,a.pos.y-1)
+		local wall_top_right=solid(a.pos.x+a.pos.w,a.pos.y-1)
+		if (wall_top_left or wall_top_right) then
+			a.mot.dy=0
+		end
+	elseif (a.mot.dy>0) then
+			local wall_btm_left=solid(a.pos.x,a.pos.y+a.pos.h+1)
+			local wall_btm_right=solid(a.pos.x+a.pos.w,a.pos.y+a.pos.h+1)
+		if (wall_btm_right or wall_btm_left) then
+			a.mot.dy=0
+		end
+	end
 end
 __gfx__
 00000000000000000000000000000000000000000044444000444440004444400000000000000000000000000000000000000000000000000000000000000000
