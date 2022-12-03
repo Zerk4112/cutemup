@@ -14,7 +14,7 @@ function _init()
 	menuitem(2,"toggle debug", function() debug = not debug end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=2
+	max_ents=0
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -1003,7 +1003,7 @@ end
 -->8
 -- camera code
 	
-function move_camera(newx,_newy)
+function move_camera(newx,_newy, ie,ae)
 	newy = _newy or cament.pos.y
 	local dx,dy = 0,0
 	cament.moving = true
@@ -1016,14 +1016,18 @@ function move_camera(newx,_newy)
 			tdst = dst_basic(newx,newy,cament.pos.x,cament.pos.y)
 			cament.pos.x+=dx*(tdst/6)
 			cament.pos.y+=dy*(tdst/6)
-			players[1].pos.x+=dx*0.6
-			players[1].pos.y+=dy*0.6
+			ie.pos.x+=dx*0.6
+			ie.pos.y+=dy*0.6
 			yield()
 		end
 		cament.pos.x = newx
 		cament.pos.y = newy
-		players[2].pos.x=players[1].pos.x
-		players[2].pos.y=players[1].pos.y
+		ae.pos.x=ie.pos.x
+		ae.pos.y=ie.pos.y
+		ae.mot.dx=ie.mot.dx
+		ae.mot.dy=ie.mot.dy
+		ae.sprflip = ie.sprflip
+		ae.sprhflip = ie.sprflip
 		cament.moving=false
 	end,1) 
 	add(routines, newr)
@@ -1031,18 +1035,28 @@ end
 
 function update_camera()
 	local p1p,cpos = players[1].pos,cament.pos
+	local ie,ae
+	for p in all(players) do
+		if ent_off_cam(p) then
+			p1p=p.pos
+			printh(tbl_dump(p))
+			ie=p
+		else
+			ae = p
+		end
+	end
 	local x,y,w,h = p1p.x,p1p.y,p1p.w,p1p.h
 	if not cament.moving then
 		if x < cpos.x then
-			move_camera(cpos.x-128)
+			move_camera(cpos.x-128,cpos.y, ie, ae)
 		elseif x+w > cpos.x+127 then
-			move_camera(cpos.x+128)
+			move_camera(cpos.x+128,cpos.y, ie, ae)
 		end
 
 		if y < cpos.y then
-			move_camera(cpos.x,cpos.y-128)
+			move_camera(cpos.x,cpos.y-128, ie, ae)
 		elseif y+h > cpos.y+127 then
-			move_camera(cpos.x,cpos.y+128)
+			move_camera(cpos.x,cpos.y+128, ie, ae)
 		end
 	end
 	camera(cpos.x,cpos.y)
