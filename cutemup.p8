@@ -226,7 +226,7 @@ function player_death(p)
 		local ad=p.animdelay
 		p.tdr = create_timer(function()
 			sfx(3)
-			for t=0,24 do
+			for t=0,20 do
 				p.animdelay=9
 				p.mot.dx=0
 				p.mot.dy=0
@@ -324,6 +324,13 @@ function player_shoot(p)
 
 end
 
+function check_respawn(p)
+	if btn(4,p.pid) then
+		p.act=true
+		p.stats.hp=3
+	end
+end
+
 function update_controls(p)
 	--when the user tries to move,
 	--we only add the acceleration
@@ -368,7 +375,6 @@ function update_controls(p)
 		end
 	end
 	if (btn(4, p.pid)) then
-		
 		if not p.dodging and p.moving then
 			if (not p.td) player_dodge(p)
 		end
@@ -1036,6 +1042,8 @@ function update_stage1()
 			if p.act then 
 				if (not p.dying and not p.dead) update_controls(p)
 				if (not cament.moving) move_entity(p) 
+			else
+				check_respawn(p)
 			end
 		end
 		update_camera()
