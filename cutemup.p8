@@ -14,7 +14,7 @@ function _init()
 	menuitem(2,"toggle debug", function() debug = not debug end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=1
+	max_ents=0
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -61,12 +61,14 @@ function _draw()
 	if (_cls) cls(1)
 	if debug then
 		print('debug', cament.pos.x,cament.pos.y,14)
-		print('p.dodging: '..tostr(players[1].dodging))
-		print('entities: '..#entities)
-		print('aroutines: '..#aroutines)
-		print('routines: '..#routines)
-		print('drigs: '..#drigs)
-		print(players[1].sprhflip)
+		print(players[1].stats.lives)
+		print(players[1].playing)
+		-- print('p.dodging: '..tostr(players[1].dodging))
+		-- print('entities: '..#entities)
+		-- print('aroutines: '..#aroutines)
+		-- print('routines: '..#routines)
+		-- print('drigs: '..#drigs)
+		-- print(players[1].sprhflip)
 	end
 	
 end
@@ -315,10 +317,14 @@ function player_shoot(p)
 end
 
 function check_respawn(p)
-	if btn(4,p.pid) and p.stats.lives>0 then
+	if p.playing and p.stats.lives>0 then
 		p.act=true
 		p.stats.hp=3
 		p.stats.lives-=1
+	end
+	if not p.playing and btn(4,p.pid) then
+		p.playing=true
+		p.act=true
 	end
 end
 
@@ -374,6 +380,7 @@ function update_controls(p)
 		if not p.dodging and p.moving then
 			if (not p.td) player_dodge(p)
 		end
+		
 	end
 end
 
@@ -403,6 +410,7 @@ function ai__rotate_to_target(e)
 	local tx,ty = t.pos.x+t.pos.w/2, t.pos.y+t.pos.h/2
 	-- angle code credits: https://www.gamedev.net/forums/topic/679527-rotate-towards-a-target-angle/ USER https://www.gamedev.net/draika-the-dragon/
 	local aim_ang=oaget(t,e)
+	if (not t.act) aim_ang=oaget(e,t)
 	local desiredanglem1=aim_ang-1
 	local desiredanglep1=aim_ang+1
 	
@@ -452,15 +460,19 @@ function create_small_wander(_x,_y, _sprtab)
 		end
 	end
 	p.behavior=create_timer(function()
-		update_coll_box(p)
-		check_collision(p)
-		ai__move_to_target(p)
-		move_entity(p)
+		if not ent_off_cam(p) then
+			update_coll_box(p)
+			check_collision(p)
+			ai__move_to_target(p)
+			move_entity(p)
+		end
 	end,1,true)
 	p.pathing = create_timer(function()
-		p.targ=ai__pick_player_target(p)
-		ai__rotate_to_target(p)
-		ai__path_to_players(p)
+		if not ent_off_cam(p) then
+			p.targ=ai__pick_player_target(p)
+			ai__rotate_to_target(p)
+			ai__path_to_players(p)
+		end
 	end,1,true)
 	add(routines, p.behavior)
 	add(aroutines, p.pathing)
@@ -497,7 +509,6 @@ end
 
 function ai__path_to_players(e)
 	local targ = e.targ -- target entity stored in source entity table
-	local tang = oaget(e, targ) -- angle from source to target
 	local tx, ty -- undefined local variables for temp x and y
 	local ang = e.mot.ang -- current path angle of source entity
 	for n=-0.25,0.25, 0.125 do -- draw 3 pixels. One in front, and one on each side
@@ -788,6 +799,7 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 		sprflip = false,
 		pal=_pal or {},
 		act=true,
+		playing=_pid==0,
 		pos = _pos or {
 			x=36, --x
 			y=36, --y,
@@ -810,7 +822,7 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 			keys=0,
 			coin=0,
 			score=0,
-			lives=2	
+			lives=1
 		},
 		coll_box = _coll_box or create_coll_box(0, 6, 7, 4, function()  end)
 	}
@@ -915,27 +927,43 @@ function init_scoreboard(p)
 	end,1,true)
 	local r = create_timer(function()
 		local sx,sy = cament.pos.x+ox,cament.pos.y
+		local lives = p.stats.lives
 		rectfill(p.sx, p.sy, p.sx+60,p.sy+14, sc)
 		rect(p.sx-1, p.sy, p.sx+61,p.sy+14, 13)
 		if p.act then
-			local shp=128
-			local sox=2
+			local shp=158
+			local sox=1
 			for i=1,p.stats.max_hp do
-				if (i>p.stats.hp) shp=140
-				spr(shp,p.sx+sox,p.sy+4)
-				sox+=8
+				if (i>p.stats.hp) shp=159
+				spr(shp,p.sx+sox,p.sy+2)
+				sox+=6
 			end
-			rect(p.sx+46, p.sy+2, p.sx+56,p.sy+12, 7)
-			
+			sox=0
+			for i=1,5 do
+				print('웃',p.sx+sox, p.sy+8,1)
+				sox+=6
+			end
+			sox=0
+			for i=1,lives do
+				if (i>5)break
+				if (i>p.stats.hp) shp=159
+				print('웃',p.sx+sox, p.sy+8,7)
+				sox+=6
+			end
+			local ammo = p.stats.ammo
+			if (p.stats.stype==1) ammo="○"
+			spr(189,p.sx+32,p.sy+2)
+			spr(190,p.sx+31,p.sy+8)
+			print(":"..p.stats.coin,p.sx+38, p.sy+2,1)
+			print(":"..ammo,p.sx+38, p.sy+8,1)
 		else
-			-- print('\#1웃:'..p.stats.lives,p.sx+2, p.sy+16,7)
-
-			hor_wave_print("🅾️  to join!",p.sx+5,p.sy+5,7,2,t(),1.5) 
+			if lives <1 then
+				hor_wave_print("game over",p.sx+8,p.sy+5,7,2,t(),1.5) 
+			else
+				hor_wave_print("🅾️  to join!",p.sx+6,p.sy+5,7,2,t(),1.5) 
+			end
 		end
-		print('\#1웃:'..p.stats.lives,p.sx+8, p.sy+17,7)
-		print('\#1$:'..p.stats.coin,p.sx+26, p.sy+17,7)
-
-		print('\#1score:'..p.stats.score,p.sx+8, p.sy+122,7)
+		
 	end,1,true)
 	add(routines, ur)
 	
@@ -975,7 +1003,7 @@ end
 -->8
 -- camera code
 	
-function move_camera(newx,_newy)
+function move_camera(newx,_newy, ie,ae)
 	newy = _newy or cament.pos.y
 	local dx,dy = 0,0
 	cament.moving = true
@@ -988,14 +1016,18 @@ function move_camera(newx,_newy)
 			tdst = dst_basic(newx,newy,cament.pos.x,cament.pos.y)
 			cament.pos.x+=dx*(tdst/6)
 			cament.pos.y+=dy*(tdst/6)
-			players[1].pos.x+=dx*0.6
-			players[1].pos.y+=dy*0.6
+			ie.pos.x+=dx*0.6
+			ie.pos.y+=dy*0.6
 			yield()
 		end
 		cament.pos.x = newx
 		cament.pos.y = newy
-		players[2].pos.x=players[1].pos.x
-		players[2].pos.y=players[1].pos.y
+		ae.pos.x=ie.pos.x
+		ae.pos.y=ie.pos.y
+		ae.mot.dx=ie.mot.dx
+		ae.mot.dy=ie.mot.dy
+		ae.sprflip = ie.sprflip
+		ae.sprhflip = ie.sprflip
 		cament.moving=false
 	end,1) 
 	add(routines, newr)
@@ -1003,18 +1035,28 @@ end
 
 function update_camera()
 	local p1p,cpos = players[1].pos,cament.pos
+	local ie,ae
+	for p in all(players) do
+		if ent_off_cam(p) then
+			p1p=p.pos
+			printh(tbl_dump(p))
+			ie=p
+		else
+			ae = p
+		end
+	end
 	local x,y,w,h = p1p.x,p1p.y,p1p.w,p1p.h
 	if not cament.moving then
 		if x < cpos.x then
-			move_camera(cpos.x-128)
+			move_camera(cpos.x-128,cpos.y, ie, ae)
 		elseif x+w > cpos.x+127 then
-			move_camera(cpos.x+128)
+			move_camera(cpos.x+128,cpos.y, ie, ae)
 		end
 
 		if y < cpos.y then
-			move_camera(cpos.x,cpos.y-128)
+			move_camera(cpos.x,cpos.y-128, ie, ae)
 		elseif y+h > cpos.y+127 then
-			move_camera(cpos.x,cpos.y+128)
+			move_camera(cpos.x,cpos.y+128, ie, ae)
 		end
 	end
 	camera(cpos.x,cpos.y)
@@ -1144,6 +1186,15 @@ function can_move(a,dx,dy)
 			btm_right_solid)
 end
 
+function ent_off_cam(e)
+	local x,y,w,h = e.pos.x,e.pos.y,e.pos.w,e.pos.h
+	return (off_cam(x,y) or
+				off_cam(x+w,y) or
+				off_cam(x,y+h) or
+				off_cam(x+w,y+h)
+			)
+end
+
 function off_cam(x,y)
 	if cament.pos.x>x or cament.pos.x+127<x or cament.pos.y>y or cament.pos.y+127<y then
 		return true
@@ -1260,11 +1311,11 @@ ddd6c7201dd6c720166cc720ddd6cc101cc6cc101dd6cc1043744674476446744764473400700700
 01282100002820000082800000282000012821000021200000128000002120000121210000212000001210000021200001111100001110000011100000111000
 00121000001210000021200000121000001210000012100000212000001210000012100000121000002120000012100000111000001110000011100000111000
 00010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000
-0022220000022000000220000002200000111100000110000001100000011000001110000011100000111000001110000007a900144444410000000000000000
-0277772000277200002772000027720001eeee10001ee100001ee100001ee10000171000001b10000017100000171000000a22004ffffff20000000000000000
-27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e10001b10000017100000171000001710000007a9004f1111f20000000000000000
-27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e1001b7b10001b7b10001b7b10001bbb100000a22004ffffff20000000000000000
-27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e10137bb310137bb31013bbb310137bb310007aaa004f11f1f20000000000000000
+0022220000022000000220000002200000111100000110000001100000011000001110000011100000111000001110000007a900144444410101000002020000
+0277772000277200002772000027720001eeee10001ee100001ee100001ee10000171000001b10000017100000171000000a22004ffffff21718100021212000
+27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e10001b10000017100000171000001710000007a9004f1111f21888100021112000
+27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e1001b7b10001b7b10001b7b10001bbb100000a22004ffffff20181000002120000
+27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e10137bb310137bb31013bbb310137bb310007aaa004f11f1f20010000000200000
 27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e1013bb331013bb331013bb331013bb3310092222904ffffff20000000000000000
 02999920002992000029920000299200012222100012210000122100001221001333331013333310133333101333331002999920122222210000000000000000
 00222200000220000002200000022000001111000001100000011000000110000111110001111100011111000111110000222200000420000000000000000000
@@ -1276,11 +1327,11 @@ ddd6c7201dd6c720166cc720ddd6cc101cc6cc101dd6cc1043744674476446744764473400700700
 007d7000007d7000007d70000000000000060d00000060d00000000d888888008888880000888800000088800000088000000080000000000000000000000000
 44676440446764404467644006000000006060000006060d00006060880000008800000000000000000000000000000000000000000000000000000000000000
 42222240422222404222224077600000777606000777606000770000000000000800000080000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000550000077770000055000000550000005000000000000009000000000000000000000000000000000000000000000
-009aa900002882000000000000055000055dd55007777770055dd550055d0000055000000000000009a9000000a0000000000000000000000000000000000000
-09a77a900287f82000055000005dd50005d66d507777777705d6005005d0000005000000000000009a7a90000a7a000000700000000000000000000000000000
-0a77ffa008ffa980005dd50005d66d505d6776d5777777775d6700d55d6000055d0000005000000009a9000000a0000000000900000000000000000000000000
-0affffa008aaa980005dd50005d66d505d6776d5777777775d6776d55d6700d55d600005500000000090000000000a0000009a90000000000000000000000000
+00000000000000000000000000000000000550000077770000055000000550000005000000000000009000000000000000000000001000000111100000000000
+009aa900002882000000000000055000055dd55007777770055dd550055d0000055000000000000009a9000000a0000000000000017100001dddd10000000000
+09a77a900287f82000055000005dd50005d66d507777777705d6005005d0000005000000000000009a7a90000a7a00000070000017a910001d61100000000000
+0a77ffa008ffa980005dd50005d66d505d6776d5777777775d6700d55d6000055d0000005000000009a9000000a0000000000900019100001d10000000000000
+0affffa008aaa980005dd50005d66d505d6776d5777777775d6776d55d6700d55d600005500000000090000000000a0000009a90001000000100000000000000
 09affa900289982000055000005dd50005d66d507777777705d66d5005d66d5005d6005005000000000007000000a7a00009a7a9000000000000000000000000
 009aa900002882000000000000055000055dd55007777770055dd550055dd550055dd550005000000000000000000a0000009a90000000000000000000000000
 00000000000000000000000000000000000550000077770000055000000550000005500000055000000000000000000000000900000000000000000000000000
@@ -1448,7 +1499,7 @@ e000e0e0eee0ee00eee0000000000000000000000000000000000000000000000000000000000000
 
 __gff__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000010000010000000000000001010101010100000000010101000000000000000000
-0000000000000000000000000000000100000000000001000000000000000001000001000000000000000101010101010000000001010100000000000000000000000000000000000000000000000000000000000000010101000001010101010000000000000101010001010101010100000000000001010100010101010000
+0000000000000000000000000000000100000000000001000000000000000000000001000000000000000101010101010000000001010100000000000000000000000000000000000000000000000000000000000000010101000001010101010000000000000101010001010101010100000000000001010100010101010000
 __map__
 00000000000000000000000000000000dedddddddddddddddddddddddddddddf000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000ddd9d9d9d9d9d9d9d9d9d9d9d9d9d9dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
