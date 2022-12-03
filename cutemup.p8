@@ -14,7 +14,7 @@ function _init()
 	menuitem(2,"toggle debug", function() debug = not debug end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=20
+	max_ents=5
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -96,8 +96,10 @@ function init_players()
 	pfsrun = {26,27,28,29}
 	
 	pdodge={4,5,6,7,8,9,10,11}
+	ptd = {2,3}
 	for i=0,1 do
 		local p = create_ent(prun, i)
+		p.stats.hp=3
 		p.chx,p.chy=0,0
 		if (i==1)add(p.pal, {9,12})
 		-- p.coll_box = create_coll_box(2, 2, 4, 4, player_collide)
@@ -136,6 +138,7 @@ function init_players()
 				end
 			end
 			if (p.dodging)p.sprtab=pdodge
+			if (p.td) p.sprtab=ptd
 		end,1,true)
 		add(routines, p.logic)
 		add(players, p)
@@ -198,6 +201,7 @@ function player_dodge(p)
 		p.animdelay = 3
 		p.mot.mspd = mspd*1.6
 		for f=1,32 do
+			if (p.td) break 
 			p.mot.dx = dx*10
 			p.mot.dy = dy*10
 			yield()
@@ -212,11 +216,38 @@ function player_dodge(p)
 	add(aroutines, r)
 end
 
+function player_takedam(p,e)
+	-- printh('player_takedam')
+	if not p.td then
+		p.td=true
+		local a = oaget(e,p)
+		local ad=p.animdelay
+		local dx,dy = cos(a)*2, sin(a)*2
+		if (p.stats.hp>0)p.stats.hp-=1
+		p.tdr = create_timer(function()
+			for t=0,24 do
+				p.animdelay=2
+				p.mot.dx=dx
+				p.mot.dy=dy
+				yield()
+				printh(dx.."/"..dy)
+			end
+			for t=0,16 do
+				yield()
+			end
+			p.animdelay=ad
+			p.td=false
+		end,1) 
+		add(routines, p.tdr)
+	end
+	
+end
+
 function player_shoot(p)
 	p.ps = p.sprflip
 	p.psh = p.sprhflip
 	local ch = create_timer(function()
-		while btn(5, p.pid) and not p.dodging do
+		while btn(5, p.pid) and not p.dodging and not p.td do
 			circ(p.chx,p.chy,1,10)
 			circ(p.chx,p.chy,4,8)
 			yield()
@@ -227,7 +258,7 @@ function player_shoot(p)
 		local x,y = p.pos.x+3.5,p.pos.y+3.5
 		local a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
 
-		while btn(5, p.pid) and not p.dodging do
+		while btn(5, p.pid) and not p.dodging and not p.td do
 			x,y = p.pos.x+3.5,p.pos.y+3.5
 			dx,dy = cos(a)*10, sin(a)*10
 			local nx,ny = x+dx,y+dy
@@ -246,7 +277,7 @@ function player_shoot(p)
 				-- 	yield()
 				-- end
 				-- yield()
-				create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,2,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
+				create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
 			end
 			yield()
 		end
@@ -268,27 +299,35 @@ function update_controls(p)
 		p.sprhflip = false
 	end
 	if (btn(0,p.pid)) then
-		p.mot.dx-=p.mot.a 
-		p.sprflip=true
+		if not p.td then
+			p.mot.dx-=p.mot.a 
+			p.sprflip=true
+		end
 	end
 	if (btn(1,p.pid)) then 
-		p.mot.dx+=p.mot.a 
-		p.sprflip=false
+		if not p.td then
+			p.mot.dx+=p.mot.a 
+			p.sprflip=false
+		end
 	end
 	if (btn(2,p.pid)) then 
-		p.mot.dy-=p.mot.a 
-		p.sprhflip=true
+		if not p.td then
+			p.mot.dy-=p.mot.a 
+			p.sprhflip=true
+		end
 
 	end
 	if (btn(3,p.pid)) then 
-		if (not ps) p.sprhflip=false
-		p.mot.dy+=p.mot.a
+		if not p.td then
+			if (not ps) p.sprhflip=false
+			p.mot.dy+=p.mot.a
+		end
 	end
 	if btn(5, p.pid) then
 		-- p.shooting=true
 		if p.srtn == nil then 
 			p.shooting=true
-			if (not p.dodging) player_shoot(p)
+			if (not p.dodging and not p.td) player_shoot(p)
 		else
 			p.sprflip=p.ps
 			p.sprhflip=p.psh
@@ -296,7 +335,7 @@ function update_controls(p)
 	end
 	if (btn(4, p.pid)) then
 		
-		if not p.dodging and p.moving then
+		if not p.dodging and p.moving and not p.td then
 			player_dodge(p)
 		end
 	end
@@ -370,20 +409,20 @@ function create_small_wander(_x,_y, _sprtab)
 	p.coll_box=create_coll_box(-1, 2, 9, 8, function()  end)
 	p.mot.mspd=0.2
 	p.animdelay=10
-	-- p.coll_box.coll_callback = function(cb, e) 
-	-- 	-- printh(tbl_dump(t))
-	-- 	if e.pid <2 then
-	-- 		-- printh('touching player')
-	-- 	else
-	-- 		-- printh('touching other enemy')
-	-- 		local tx,ty,ta
-	-- 		ta = oaget(p,e)
-	-- 		tx = e.pos.x+cos(ta)*8
-	-- 		ty = e.pos.y+sin(ta)*8
-	-- 		p.pos.x = tx
-	-- 		p.pos.y = ty
-	-- 	end
-	-- end
+	p.coll_box.coll_callback = function(cb, e) 
+		-- printh(tbl_dump(t))
+		if e.pid <2 then
+			player_takedam(e,p)
+		else
+			-- printh('touching other enemy')
+			-- local tx,ty,ta
+			-- ta = oaget(p,e)
+			-- tx = e.pos.x+cos(ta)*8
+			-- ty = e.pos.y+sin(ta)*8
+			-- p.pos.x = tx
+			-- p.pos.y = ty
+		end
+	end
 	p.behavior=create_timer(function()
 		update_coll_box(p)
 		check_collision(p)
@@ -725,7 +764,7 @@ end
 
 function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 	local e={
-		shtdelay=10,
+		shtdelay=30,
 		pid=_pid or 2,
 		sprtab=_sprtab or {240},
 		prev_tab = {}, -- previous animation table, stored to track animation index when it swaps
@@ -753,7 +792,8 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 			ammo=0,
 			stype=1,
 			keys=0,
-			coin=0			
+			coin=0,
+			score=0		
 		},
 		coll_box = _coll_box or create_coll_box(0, 6, 7, 4, function()  end)
 	}
@@ -1110,7 +1150,7 @@ function check_collision(e)
 	-- this function specifically checks the collision between existing entities in the world
     
     collide = false
-    if e.pid<2 then
+    -- if e.pid<2 then
 		for i, tar in pairs(entities) do
 			if tar.act==true and e.act==true and tar.pid~=e.pid then
 				if tar.coll_box~=nil then
@@ -1121,7 +1161,7 @@ function check_collision(e)
 				end
 			end
 		end
-	end
+	-- end
     return collide
 end
 
