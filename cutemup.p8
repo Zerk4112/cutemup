@@ -280,7 +280,7 @@ function player_shoot(p)
 			dx,dy = cos(a)*10, sin(a)*10
 			p.chx,p.chy = x+dx,y+dy
 			local ox = 0
-			if (i==0)create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
+			if (i==0)sfx(0) create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
 
 			i+=1
 			if (btn(5,p.pid) and i==p.shtdelay) i=0
