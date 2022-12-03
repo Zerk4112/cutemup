@@ -198,7 +198,6 @@ end
 function player_dodge(p)
 	local dx,dy = p.mot.dx,p.mot.dy
 	local mspd = p.mot.mspd
-	local aspd = p.animdelay
 	printh(mspd)
 	if (not p.dodging) p.dodging=true
 	local r = create_timer(function()
@@ -210,7 +209,7 @@ function player_dodge(p)
 			p.mot.dy = dy*10
 			yield()
 		end
-		p.animdelay = aspd
+		p.animdelay = 5
 		p.mot.mspd = mspd
 		p.mot.dx=0
 		p.mot.dy=0
@@ -223,7 +222,6 @@ end
 function player_death(p)
 	if not p.dead then
 		p.dying=true
-		local ad=p.animdelay
 		p.tdr = create_timer(function()
 			sfx(3)
 			for t=0,20 do
@@ -242,7 +240,7 @@ function player_death(p)
 			end
 			p.act=false
 			p.dead=false
-			p.animdelay=ad
+			p.animdelay=5
 		end,1) 
 		add(routines, p.tdr)
 	end
@@ -252,8 +250,8 @@ function player_takedam(p,e)
 	-- printh('player_takedam')
 	if not p.td then
 		p.td=true
+		
 		local a = oaget(e,p)
-		local ad=p.animdelay
 		local dx,dy = cos(a)*2, sin(a)*2
 		if (p.stats.hp>0)p.stats.hp-=1
 		p.tdr = create_timer(function()
@@ -269,8 +267,10 @@ function player_takedam(p,e)
 				yield()
 			end
 			if (p.stats.hp==0) player_death(p)
-			p.animdelay=ad
+			p.animdelay=5
 			p.td=false
+			p.shooting=false
+			p.dodging=false
 		end,1) 
 		add(routines, p.tdr)
 	end
@@ -278,32 +278,49 @@ function player_takedam(p,e)
 end
 
 function player_shoot(p)
-	p.ps = p.sprflip
-	p.psh = p.sprhflip
-	local ch = create_timer(function()
-		while btn(5, p.pid) and not p.dodging and not p.td do
-			circ(p.chx,p.chy,1,10)
-			circ(p.chx,p.chy,4,8)
-			yield()
-		end
-	end,1) 
+	
+	local chr = nil
+	
 	local r = create_timer(function()
-		local i=p.shtdelay
+		local i=0
 		local x,y = p.pos.x+3.5,p.pos.y+3.5
 		local a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
 
-		while btn(5, p.pid) and not p.dodging and not p.td do
+		while not p.dodging and not p.td do
+			
 			x,y = p.pos.x+3.5,p.pos.y+3.5
 			dx,dy = cos(a)*10, sin(a)*10
-			local nx,ny = x+dx,y+dy
-			p.chx,p.chy = nx,ny
+			p.chx,p.chy = x+dx,y+dy
 			local ox = 0
+			if (i==0)create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
+
 			i+=1
-			if i>=p.shtdelay then
-				i=0
-				if (not p.sprflip) ox=7
-				local px,py = p.pos.x+ox, p.pos.y+4
-				sfx(0)
+			if (btn(5,p.pid) and i==p.shtdelay) i=0
+			if (i==p.shtdelay) break
+
+			if btn(5,p.pid) then
+				if chr==nil then
+					a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
+					local ch = create_timer(function()
+						while btn(5, p.pid) and not p.dodging and not p.td do
+							circ(p.chx,p.chy,1,10)
+							circ(p.chx,p.chy,4,8)
+							yield()
+						end
+					end,1) 
+					add(aroutines, ch)
+					chr=ch
+
+				end
+			else
+				del(aroutines, ch)
+				chr=nil
+			end
+			-- if i>=p.shtdelay then
+				-- i=0
+				-- if (not p.sprflip) ox=7
+				-- local px,py = p.pos.x+ox, p.pos.y+4
+				-- sfx(0)
 				-- for k=0,2 do -- muzzle flash
 				-- 	circfill(px, py,3,8)
 				-- 	circfill(px, py,2,10)
@@ -311,8 +328,8 @@ function player_shoot(p)
 				-- 	yield()
 				-- end
 				-- yield()
-				create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
-			end
+				-- create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
+			-- end
 			yield()
 		end
 		p.srtn=nil
@@ -320,7 +337,6 @@ function player_shoot(p)
 	end,1) 
 	p.srtn=r
 	add(routines, r)
-	add(aroutines, ch)
 
 end
 
@@ -360,19 +376,27 @@ function update_controls(p)
 	end
 	if (btn(3,p.pid)) then 
 		if not p.td then
-			if (not ps) p.sprhflip=false
+			p.sprhflip=false
 			p.mot.dy+=p.mot.a
 		end
 	end
 	if btn(5, p.pid) then
 		-- p.shooting=true
+		if not p.dodging then
+			p.sprflip=p.ps
+			p.sprhflip=p.psh
+		else
+			p.ps = p.sprflip
+			p.psh = p.sprhflip
+		end
+
 		if p.srtn == nil then 
 			p.shooting=true
 			if (not p.dodging and not p.td) player_shoot(p)
-		else
-			p.sprflip=p.ps
-			p.sprhflip=p.psh
 		end
+	else
+		p.ps = p.sprflip
+		p.psh = p.sprhflip
 	end
 	if (btn(4, p.pid)) then
 		if not p.dodging and p.moving then
