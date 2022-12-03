@@ -41,8 +41,9 @@ function _draw()
 	if not cament.moving then
 		local ordered={}
 		for obj in all(entities) do
-			ordered[flr(obj.pos.y)] = ordered[flr(obj.pos.y)] or {} -- ensure table is there
-			add(ordered[flr(obj.pos.y)],obj.draw_rig)
+			local i = flr(obj.pos.y+obj.pos.h)
+			ordered[i] = ordered[i] or {} -- ensure table is there
+			add(ordered[i],obj.draw_rig)
 		end
 		for i=cament.pos.y,cament.pos.y+127 do -- or whatever your min/max Y is
 			for k,r in pairs(ordered[i]) do
@@ -451,8 +452,10 @@ end
 
 function create_wanderer(_x,_y, _type, _sprtab)
 	local sprtab = _sprtab or {71,72,71,70}
+	local pid = 2
+	if (_type==2) pid=3
 	-- local sprtab = _sprtab or {112,113,114,115}
-	local p = create_ent(sprtab, ents, {
+	local p = create_ent(sprtab, pid, {
 		x=_x, --x
 		y=_y, --y,
 		w=_w or 7,
@@ -462,7 +465,7 @@ function create_wanderer(_x,_y, _type, _sprtab)
 	p.mot.mspd=0.2
 	p.animdelay=18
 	if _type==2 then
-		p.mot.mspd=0.31
+		p.mot.mspd=0.25
 		p.animdelay=10
 		p.pos.w=15
 		p.pos.h=15
@@ -491,6 +494,17 @@ function create_wanderer(_x,_y, _type, _sprtab)
 			ai__path_to_players(p)
 		end
 	end,1,true)
+	if (_type==2) then
+		p.spawning = create_timer(function()
+			if not ent_off_cam(p) then
+				for i=0,240 do
+					yield()
+				end
+				printh('spawn a tiny goomba')
+			end
+		end,1,true)
+		add(routines, p.spawning)
+	end
 	add(routines, p.behavior)
 	add(aroutines, p.pathing)
 	-- add(entities, p)
@@ -500,9 +514,15 @@ end
 
 function ai__steer(e, d)
 	local sspd = ai_steer_spd+0.1
-	if d<0 then
+	if d<-0.125 then
+		e.mot.a=e.mot.oa*1.5
+		e.mot.ang+=sspd
+	elseif d<0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
+	elseif d>0.125 then
+		e.mot.a=e.mot.oa
+		e.mot.ang-=sspd*1.5
 	elseif d>0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang-=sspd
@@ -538,8 +558,11 @@ function ai__path_to_players(e)
 
 			if e.pid ~= ent.pid and ent.pid>1 then -- If the entity is another enemy, then continue
 				if check_pos_collision(tx,ty, ent.coll_box) then -- if colliding with another enemy
-
-					ai__steer(e,n) -- steer function to avoid clumping of mobs
+					if e.pid==3 and ent.pid==2 then
+						ai__steer(ent,n) -- steer function to avoid clumping of mobs
+					else
+						ai__steer(e,n) -- steer function to avoid clumping of mobs
+					end
 				else
 					e.mot.a=e.mot.oa -- if nothing is colliding, reset accelleration back to default. needs refactoring for stats!
 				end
@@ -801,6 +824,7 @@ function clean_ent(e)
 	del(aroutines,e.behavior)
 	del(routines,e.pathing)
 	del(aroutines,e.pathing)
+	del(routines, e.spawning)
 	del(drigs, e.draw_rig)
 	del(entities, e)
 end
