@@ -7,7 +7,7 @@ __lua__
 -- game loop
 
 function _init()
-	debug = false
+	debug = true
 	mchunks = {}
 	printh('~~~~~~~~PROG INIT~~~~~~')
 	menuitem(1,"toggle player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
@@ -458,14 +458,19 @@ function create_wanderer(_x,_y, _type, _sprtab)
 		w=_w or 7,
 		h=_h or 7
 	})
+	p.coll_box=create_coll_box(-1, 2, 9, 8)
+	p.mot.mspd=0.2
+	p.animdelay=18
 	if _type==2 then
+		p.mot.mspd=0.31
+		p.animdelay=10
 		p.pos.w=15
 		p.pos.h=15
+		p.coll_box=create_coll_box(1, 5, 13, 13)
+
 		-- sprtab = {80,82,84,82}
 	end
-	p.coll_box=create_coll_box(-1, 2, 9, 8, function()  end)
-	p.mot.mspd=0.2
-	p.animdelay=10
+	
 	p.coll_box.coll_callback = function(cb, e) 
 		if e.pid <2 then
 			if (not e.dying and not e.dead)player_takedam(e,p)
