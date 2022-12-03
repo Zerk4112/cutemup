@@ -341,9 +341,10 @@ function player_shoot(p)
 end
 
 function check_respawn(p)
-	if btn(4,p.pid) then
+	if btn(4,p.pid) and p.stats.lives>0 then
 		p.act=true
 		p.stats.hp=3
+		p.stats.lives-=1
 	end
 end
 
@@ -852,12 +853,13 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 		},
 		stats={
 			hp=1,
-			max_hp=3,
+			max_hp=5,
 			ammo=0,
 			stype=1,
 			keys=0,
 			coin=0,
-			score=0		
+			score=0,
+			lives=2	
 		},
 		coll_box = _coll_box or create_coll_box(0, 6, 7, 4, function()  end)
 	}
@@ -1034,11 +1036,19 @@ function init_scoreboard(p)
 			for i=1,p.stats.max_hp do
 				if (i>p.stats.hp) shp=140
 				spr(shp,p.sx+sox,p.sy+4)
-				sox+=9
+				sox+=8
 			end
+			rect(p.sx+46, p.sy+2, p.sx+56,p.sy+12, 7)
+			
 		else
+			-- print('\#1웃:'..p.stats.lives,p.sx+2, p.sy+16,7)
+
 			hor_wave_print("🅾️  to join!",p.sx+5,p.sy+5,7,2,t(),1.5) 
 		end
+		print('\#1웃:'..p.stats.lives,p.sx+8, p.sy+17,7)
+		print('\#1$:'..p.stats.coin,p.sx+26, p.sy+17,7)
+
+		print('\#1score:'..p.stats.score,p.sx+8, p.sy+122,7)
 	end,1,true)
 	add(routines, ur)
 	
