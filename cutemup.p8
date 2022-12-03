@@ -14,7 +14,7 @@ function _init()
 	menuitem(2,"toggle debug", function() debug = not debug end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=0
+	max_ents=2
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -152,7 +152,8 @@ function player_collide(self, e)
 	-- end
 end
 
-function create_bullet(_x,_y,_s,_a,_id)
+function create_bullet(_x,_y,_s,_a,_e)
+	local collided = {}
 	local dx,dy = cos(_a)*_s,sin(_a)*_s
 	local b = create_ent({}, -2, {x=_x,y=_y,w=1,h=1}, {
 		dx=dx, --dx
@@ -174,10 +175,25 @@ function create_bullet(_x,_y,_s,_a,_id)
 		pset(bx,by,10)
 		for e in all(entities) do
 			if check_pos_collision(bx,by, e.coll_box) then 
-				if (e.pid>1 and e.act) clean_ent(e) e.act=false clean_ent(b) sfx(1)
+				if e.pid>1 and e.act then
+					if e.stats.hp>0 and not vintab(e, collided) then
+						e.stats.hp-=1
+						sfx(4)
+						add(collided, e)
+						if (#collided>_e.stats.pierce) clean_ent(b)
+						printh('collided')
+					elseif not vintab(e, collided) then
+						clean_ent(e)
+						e.act=false
+						clean_ent(b)
+						printh('collided forever')
+
+						sfx(1)
+					end
+				end
 			end
 		end
-		if b.mot.dx~=dx or b.mot.dy~=dy or off_cam(bx, by) then
+		if flr(b.mot.dx)~=flr(dx) or flr(b.mot.dy)~=flr(dy) or off_cam(bx, by) then
 			clean_ent(b)
 		end
 	end,1,true)
@@ -190,7 +206,6 @@ end
 function player_dodge(p)
 	local dx,dy = p.mot.dx,p.mot.dy
 	local mspd = p.mot.mspd
-	printh(mspd)
 	if (not p.dodging) p.dodging=true
 	local r = create_timer(function()
 		p.animdelay = 3
@@ -221,13 +236,11 @@ function player_death(p)
 				p.mot.dx=0
 				p.mot.dy=0
 				yield()
-				printh(p.animdelay)
 
 			end
 			p.dying=false
 			p.dead=true
 			for t=0,60 do
-				printh(p.animdelay)
 				yield()
 			end
 			p.act=false
@@ -282,7 +295,7 @@ function player_shoot(p)
 			dx,dy = cos(a)*10, sin(a)*10
 			p.chx,p.chy = x+dx,y+dy
 			local ox = 0
-			if (i==0)sfx(0) create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015))
+			if (i==0)sfx(0) create_bullet(p.pos.x+p.pos.w/2, p.pos.y+p.pos.h/2,3,aget(p.pos.x+3.5, p.pos.y+3.5,p.chx,p.chy)+rnd(0.015)-rnd(0.015),p)
 
 			i+=1
 			if (btn(5,p.pid) and i==p.shtdelay) i=0
@@ -325,6 +338,7 @@ function check_respawn(p)
 	if not p.playing and btn(4,p.pid) then
 		p.playing=true
 		p.act=true
+		p.mot.dx, p.mot.dy=0,0
 	end
 end
 
@@ -386,17 +400,14 @@ end
 
 function tbl_dump(o)
     if type(o) == 'table' then
-        -- printh('parsing table, length: '..#o)
 		local h,f='',''
         local s = '{'
         for k,v in pairs(o) do
-            -- printh(tostr(k).."/"..type(v))
             if (type(k) == 'number') h='[' f=']'
             s = s .. h..k..f..' = ' .. tbl_dump(v) .. ','
         end
         return s .. '}'
     else
-		-- printh(tostr(o).."/"..type(o))
 		if (type(o)=="string") return '"'..o..'"'
         return tostr(o)
     end
@@ -454,7 +465,6 @@ function create_small_wander(_x,_y, _sprtab)
 	p.mot.mspd=0.2
 	p.animdelay=10
 	p.coll_box.coll_callback = function(cb, e) 
-		-- printh(tbl_dump(t))
 		if e.pid <2 then
 			if (not e.dying and not e.dead)player_takedam(e,p)
 		end
@@ -749,9 +759,8 @@ function create_timer(_callback, _max, _loop, _lc, _finally, _call_asap)
 			end
 			i+=1
         end
-        if (finally~=nil) finally() -- printh('running _finally in timer') 
+        if (finally~=nil) finally() 
     end)
-        -- add(routines, new_timer)
     return new_timer
 end
 
@@ -801,8 +810,8 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 		act=true,
 		playing=_pid==0,
 		pos = _pos or {
-			x=36, --x
-			y=36, --y,
+			x=60, --x
+			y=60, --y,
 			w=7,
 			h=7
 		},
@@ -822,7 +831,8 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 			keys=0,
 			coin=0,
 			score=0,
-			lives=1
+			lives=1,
+			pierce=0
 		},
 		coll_box = _coll_box or create_coll_box(0, 6, 7, 4, function()  end)
 	}
@@ -843,8 +853,6 @@ end
 
 function draw_entity(e,i)
 	local ds = function()
-		-- printh('draw print index: '..i)
-		
 		if e.act then
 			local x,y,w,h = e.pos.x,e.pos.y,e.pos.w,e.pos.h
 			ovalfill(x,y+h,x+w,y+h+2,0)
@@ -859,7 +867,7 @@ function draw_entity(e,i)
 		for d=0, e.animdelay do
 			ds()
 			yield()
-			if (e.sprtab ~= e.prev_tab) i=1 printh('sprtab~=prev_tab: '..tbl_dump(e.sprtab))
+			if (e.sprtab ~= e.prev_tab) i=1 --printh('sprtab~=prev_tab: '..tbl_dump(e.sprtab))
 			ds()
 		end
 	else
@@ -973,7 +981,7 @@ end
 function init_stage1()
 	music(0)
 	for i=1, max_ents do
-		create_small_wander(randbi(16,100), randbi(24,100))
+		create_small_wander(randbi(146,240), randbi(24,100))
 	end
 	init_players()
 	players[2].act=false
@@ -1039,7 +1047,6 @@ function update_camera()
 	for p in all(players) do
 		if ent_off_cam(p) then
 			p1p=p.pos
-			printh(tbl_dump(p))
 			ie=p
 		else
 			ae = p
@@ -1064,6 +1071,13 @@ end
 
 -->8
 -- math functions
+
+function vintab(_v,t)
+	for k, v in pairs(t) do
+		if (v == _v) return true
+	end
+	return false
+end
 
 --random int between 0,h
 function rand(h) --exclusive
@@ -1501,9 +1515,9 @@ __gff__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000010000010000000000000001010101010100000000010101000000000000000000
 0000000000000000000000000000000100000000000001000000000000000000000001000000000000000101010101010000000001010100000000000000000000000000000000000000000000000000000000000000010101000001010101010000000000000101010001010101010100000000000001010100010101010000
 __map__
-00000000000000000000000000000000dedddddddddddddddddddddddddddddf000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000ddd9d9d9d9d9d9d9d9d9d9d9d9d9d9dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-dedddddddddddddddddddddddddddddfddd9d9d9d9d9d9d9d9d9d9d9d9d9d9dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+dedddddddddddddddddddddddddddddfdedddddddddddddddddddddddddddddf000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ddd9d9d9d9d9d9d9d9d9d9d9d9d9d9ddddd9d9d9d9d9d9d9d9d9d9d9d9d9d9dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ddd9d9d9d9d9d9d9d9d9d9d9d9d9d9ddddd9d9d9d9d9d9d9d9d9d9d9d9d9d9dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ddd9d9d9d9d9d9d9d9d9d9d9d9d9d9ddddd9d9d9d9d9d9d9d9d9d9d9d9d9d9dd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1522,3 +1536,4 @@ __sfx__
 00010000100201102013020150201602016020150201401011010100001800016000160001700019000000001a000000001a0001b0001b0000000000000000000000000000000000000000000000000000000000
 010100000d4200f4202d4202c3202b4202812024420251102121022110206101f110227101f110170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000200000000038020340203302032020000003a05038020350203302031020300202d0202c0200000000000000003503032030300302e0302b0302a030000000000000000000000000000000000000000000000
+000100001a02018020160201602017020190201d0201e01011010100001800016000160001700019000000001a000000001a0001b0001b0000000000000000000000000000000000000000000000000000000000
