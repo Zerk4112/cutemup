@@ -1,4 +1,8 @@
 # Player
+- HP
+- Score
+- Shared Keys
+
 
 # Enemies
 - Small Goomba
