@@ -926,10 +926,9 @@ function init_scoreboard(p)
 				sox+=6
 			end
 			rect(p.sx+46, p.sy+2, p.sx+56,p.sy+12, 7)
-			print('\#1웃:'..p.stats.lives,p.sx+8, p.sy+17,7)
-		print('\#1$:'..p.stats.coin,p.sx+26, p.sy+17,7)
-
-		print('\#1score:'..p.stats.score,p.sx+8, p.sy+122,7)
+			print('웃:'..p.stats.lives,p.sx+8, p.sy+8,1)
+			print('$:'..p.stats.coin,p.sx+26, p.sy+8,1)
+			print('\#1score:'..p.stats.score,p.sx+8, p.sy+122,7)
 		else
 			-- print('\#1웃:'..p.stats.lives,p.sx+2, p.sy+16,7)
 
