@@ -1,10 +1,12 @@
 # Player
+
 - HP
 - Score
 - Shared Keys
 
 
 # Enemies
+
 - Small Goomba
 - Big Goomba (After floor 2, amount per floor calculated as $floor_num-2)- 
 - Spikes
@@ -19,6 +21,7 @@
 # Floors
 
 # Bosses
+
 - Small Goomba Party
 - Big Goomba
 - Big Goomba (Floor 1, with small goomba backup)
@@ -33,8 +36,8 @@
 - Flamethrower (Infinite pierce, limited range)
 - Rockets (Explosion, can damage players)
 
-
 # Malus's
+
 - Player Slowness
 - Player Shooting Slowness
 - Player 
