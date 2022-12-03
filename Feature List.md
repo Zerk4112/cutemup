@@ -1,14 +1,15 @@
-# Player
+# Game Features
+
+## Player
 
 - HP
 - Score
 - Shared Keys
 
-
-# Enemies
+## Enemies
 
 - Small Goomba
-- Big Goomba (After floor 2, amount per floor calculated as $floor_num-2)- 
+- Big Goomba (After floor 2, amount per floor calculated as $floor_num-2)
 - Spikes
 - Weird fish
 - Weird little plant thing
@@ -18,9 +19,7 @@
 - Pickle Boy
 - Psycho Square
 
-# Floors
-
-# Bosses
+## Bosses
 
 - Small Goomba Party
 - Big Goomba
@@ -28,7 +27,11 @@
 - Big Goomba (Floor 2, small goomba backup and can spit power balls)
 - Big Goomba * Floor Number (Shoots power balls in patterns)
 
-# Weapon Power-ups
+## Mechanics
+
+## Floors
+
+## Weapon Power-ups
 
 - Bullet Piercing
 - Spreadshot
@@ -36,9 +39,8 @@
 - Flamethrower (Infinite pierce, limited range)
 - Rockets (Explosion, can damage players)
 
-# Malus's
+## Malus's
 
 - Player Slowness
 - Player Shooting Slowness
-- Player 
-
+- Player
