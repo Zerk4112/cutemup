@@ -227,7 +227,7 @@ function player_death(p)
 		p.tdr = create_timer(function()
 			sfx(3)
 			for t=0,24 do
-				p.animdelay=7
+				p.animdelay=9
 				p.mot.dx=0
 				p.mot.dy=0
 				yield()
