@@ -857,7 +857,7 @@ function draw_entity(e,i)
 			local x,y,w,h = e.pos.x,e.pos.y,e.pos.w,e.pos.h
 			ovalfill(x,y+h,x+w,y+h+2,0)
 			if (#e.pal>0) swap_pal(e.pal)
-			spr(e.sprtab[i],e.pos.x, e.pos.y,1,1, e.sprflip)
+			spr(e.sprtab[i],e.pos.x, e.pos.y,ceil(e.pos.w/8),ceil(e.pos.h/8), e.sprflip)
 			pal()
 			e.prev_tab = e.sprtab
 		end
