@@ -14,7 +14,7 @@ function _init()
 	menuitem(2,"toggle debug", function() debug = not debug end)
 	init_scenes()
 	ai_steer_spd=0.070
-	max_ents=0
+	max_ents=10
 	aroutines={}
 	drigs = {}
 	routines={}
@@ -61,12 +61,13 @@ function _draw()
 	if (_cls) cls(1)
 	if debug then
 		print('debug', cament.pos.x,cament.pos.y,14)
-		print('p.dodging: '..tostr(players[1].dodging))
-		print('entities: '..#entities)
-		print('aroutines: '..#aroutines)
-		print('routines: '..#routines)
-		print('drigs: '..#drigs)
-		print(players[1].sprhflip)
+		print(players[1].stats.lives)
+		-- print('p.dodging: '..tostr(players[1].dodging))
+		-- print('entities: '..#entities)
+		-- print('aroutines: '..#aroutines)
+		-- print('routines: '..#routines)
+		-- print('drigs: '..#drigs)
+		-- print(players[1].sprhflip)
 	end
 	
 end
@@ -403,6 +404,7 @@ function ai__rotate_to_target(e)
 	local tx,ty = t.pos.x+t.pos.w/2, t.pos.y+t.pos.h/2
 	-- angle code credits: https://www.gamedev.net/forums/topic/679527-rotate-towards-a-target-angle/ USER https://www.gamedev.net/draika-the-dragon/
 	local aim_ang=oaget(t,e)
+	if (not t.act) aim_ang=oaget(e,t)
 	local desiredanglem1=aim_ang-1
 	local desiredanglep1=aim_ang+1
 	
@@ -497,7 +499,6 @@ end
 
 function ai__path_to_players(e)
 	local targ = e.targ -- target entity stored in source entity table
-	local tang = oaget(e, targ) -- angle from source to target
 	local tx, ty -- undefined local variables for temp x and y
 	local ang = e.mot.ang -- current path angle of source entity
 	for n=-0.25,0.25, 0.125 do -- draw 3 pixels. One in front, and one on each side
@@ -810,7 +811,7 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 			keys=0,
 			coin=0,
 			score=0,
-			lives=2	
+			lives=1
 		},
 		coll_box = _coll_box or create_coll_box(0, 6, 7, 4, function()  end)
 	}
@@ -915,24 +916,41 @@ function init_scoreboard(p)
 	end,1,true)
 	local r = create_timer(function()
 		local sx,sy = cament.pos.x+ox,cament.pos.y
+		local lives = p.stats.lives
 		rectfill(p.sx, p.sy, p.sx+60,p.sy+14, sc)
 		rect(p.sx-1, p.sy, p.sx+61,p.sy+14, 13)
 		if p.act then
 			local shp=158
-			local sox=2
+			local sox=1
 			for i=1,p.stats.max_hp do
 				if (i>p.stats.hp) shp=159
 				spr(shp,p.sx+sox,p.sy+2)
 				sox+=6
 			end
+			sox=0
+			for i=1,5 do
+				print('웃',p.sx+sox, p.sy+8,1)
+				sox+=6
+			end
+			sox=0
+			for i=1,lives do
+				if (i>5)break
+				if (i>p.stats.hp) shp=159
+				print('웃',p.sx+sox, p.sy+8,7)
+				sox+=6
+			end
+
 			rect(p.sx+46, p.sy+2, p.sx+56,p.sy+12, 7)
-			print('웃:'..p.stats.lives,p.sx+8, p.sy+8,1)
-			print('$:'..p.stats.coin,p.sx+26, p.sy+8,1)
+			print('$:'..p.stats.coin,p.sx+32, p.sy+2,1)
 			print('\#1score:'..p.stats.score,p.sx+8, p.sy+122,7)
 		else
-			-- print('\#1웃:'..p.stats.lives,p.sx+2, p.sy+16,7)
+			if lives <1 then
+				hor_wave_print("game over",p.sx+7,p.sy+5,7,2,t(),1.5) 
+				
+			else
+				hor_wave_print("🅾️  to join!",p.sx+5,p.sy+5,7,2,t(),1.5) 
 
-			hor_wave_print("🅾️  to join!",p.sx+5,p.sy+5,7,2,t(),1.5) 
+			end
 		end
 		
 	end,1,true)
