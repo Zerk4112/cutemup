@@ -181,13 +181,10 @@ function create_bullet(_x,_y,_s,_a,_e)
 						sfx(4)
 						add(collided, e)
 						if (#collided>_e.stats.pierce) clean_ent(b)
-						printh('collided')
 					elseif not vintab(e, collided) then
 						clean_ent(e)
 						e.act=false
 						clean_ent(b)
-						printh('collided forever')
-
 						sfx(1)
 					end
 				end
@@ -452,15 +449,20 @@ function ai__rotate_to_target(e)
 
 end
 
-function create_small_wander(_x,_y, _sprtab)
+function create_wanderer(_x,_y, _type, _sprtab)
 	local sprtab = _sprtab or {71,72,71,70}
 	-- local sprtab = _sprtab or {112,113,114,115}
 	local p = create_ent(sprtab, ents, {
 		x=_x, --x
 		y=_y, --y,
-		w=7,
-		h=7
+		w=_w or 7,
+		h=_h or 7
 	})
+	if _type==2 then
+		p.pos.w=15
+		p.pos.h=15
+		-- sprtab = {80,82,84,82}
+	end
 	p.coll_box=create_coll_box(-1, 2, 9, 8, function()  end)
 	p.mot.mspd=0.2
 	p.animdelay=10
@@ -981,8 +983,9 @@ end
 function init_stage1()
 	music(0)
 	for i=1, max_ents do
-		create_small_wander(randbi(146,240), randbi(24,100))
+		create_wanderer(randbi(146,240), randbi(24,100))
 	end
+	create_wanderer(randbi(146,240), randbi(24,100),2,{80,82,84,82})
 	init_players()
 	players[2].act=false
 	
