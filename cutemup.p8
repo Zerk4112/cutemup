@@ -62,6 +62,7 @@ function _draw()
 	if debug then
 		print('debug', cament.pos.x,cament.pos.y,14)
 		print(players[1].stats.lives)
+		print(players[1].playing)
 		-- print('p.dodging: '..tostr(players[1].dodging))
 		-- print('entities: '..#entities)
 		-- print('aroutines: '..#aroutines)
@@ -316,10 +317,14 @@ function player_shoot(p)
 end
 
 function check_respawn(p)
-	if btn(4,p.pid) and p.stats.lives>0 then
+	if p.playing and p.stats.lives>0 then
 		p.act=true
 		p.stats.hp=3
 		p.stats.lives-=1
+	end
+	if not p.playing and btn(4,p.pid) then
+		p.playing=true
+		p.act=true
 	end
 end
 
@@ -375,6 +380,7 @@ function update_controls(p)
 		if not p.dodging and p.moving then
 			if (not p.td) player_dodge(p)
 		end
+		
 	end
 end
 
@@ -793,6 +799,7 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 		sprflip = false,
 		pal=_pal or {},
 		act=true,
+		playing=_pid==0,
 		pos = _pos or {
 			x=36, --x
 			y=36, --y,
