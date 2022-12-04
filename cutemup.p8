@@ -7,7 +7,7 @@ __lua__
 -- game loop
 
 function _init()
-	debug = true
+	debug = false
 	mchunks = {}
 	printh('~~~~~~~~PROG INIT~~~~~~')
 	menuitem(1,"toggle debug", function() debug = not debug end)
@@ -64,10 +64,11 @@ function _draw()
 		print('debug', cament.pos.x,cament.pos.y,14)
 		print(players[1].stats.lives)
 		print(players[1].playing)
+		print(players[1].invinframes)
 		-- print('p.dodging: '..tostr(players[1].dodging))
 		-- print('entities: '..#entities)
-		-- print('aroutines: '..#aroutines)
-		-- print('routines: '..#routines)
+		print('aroutines: '..#aroutines)
+		print('routines: '..#routines)
 		-- print('drigs: '..#drigs)
 		-- print(players[1].sprhflip)
 	end
@@ -227,6 +228,8 @@ end
 function player_death(p)
 	if not p.dead then
 		p.dying=true
+		del(routines, p.invinframes)
+		p.invinframes=nil
 		p.tdr = create_timer(function()
 			sfx(3)
 			for t=0,20 do
@@ -250,7 +253,7 @@ function player_death(p)
 end
 
 function player_takedam(p,e)
-	if not p.td then
+	if not p.td and p.invinframes==nil then
 		p.td=true
 		
 		local a = oaget(e,p)
@@ -267,11 +270,24 @@ function player_takedam(p,e)
 			for t=0,16 do
 				yield()
 			end
-			if (p.stats.hp==0) player_death(p)
 			p.animdelay=5
+			p.invinframes = create_timer(function()
+				for i=1,120 do
+					if (i%10)p.blink = not p.blink
+					printh('blink!')
+					yield()
+				end
+				p.blink=false
+				del(routines,p.invinframes)
+				p.invinframes = nil
+				
+			end,1) 
 			p.td=false
 			p.shooting=false
 			p.dodging=false
+			if (p.stats.hp==0) player_death(p)
+			
+			add(routines,p.invinframes)
 		end,1) 
 		add(routines, p.tdr)
 	end
@@ -332,6 +348,17 @@ function check_respawn(p)
 		p.act=true
 		p.stats.hp=3
 		p.stats.lives-=1
+		p.invinframes = create_timer(function()
+			for i=1,120 do
+				if (i%10)p.blink = not p.blink
+				printh('blink!')
+				yield()
+			end
+			p.blink=false
+			del(routines,p.invinframes)
+			p.invinframes = nil
+		end,1) 
+		add(routines,p.invinframes)
 	end
 	if not p.playing and btn(4,p.pid) then
 		p.playing=true
@@ -450,8 +477,22 @@ function ai__rotate_to_target(e)
 
 end
 
-function spawn_effect(_x,_y)
-
+function spawn_effect(_e)
+	local sprtab = {175,174,173,172,171,170,169,168,178,179,180,181,182,183,184,185}
+	local spri=1
+	local d = 0.10
+	_e.spawning=false
+	local speff = create_timer(function()
+		for f in all(sprtab) do
+			for i=0,d,0.1 do
+				spr(f,_e.pos.x,_e.pos.y)
+				yield()
+			end
+		end
+		yields(5)
+		_e.act=true
+	end,1)
+	add(aroutines, speff)
 end
 
 function create_wanderer(_x,_y, _type, _sprtab)
@@ -465,11 +506,14 @@ function create_wanderer(_x,_y, _type, _sprtab)
 		w=_w or 7,
 		h=_h or 7
 	})
+	p.act=false
+	p.spawning=true
 	p.coll_box=create_coll_box(-1, 2, 9, 8)
 	p.mot.mspd=0.2
 	p.animdelay=18
 	if _type==2 then
-		p.mot.mspd=0.25
+		p.stats.hp=10
+		p.mot.mspd=0.22
 		p.animdelay=10
 		p.pos.w=15
 		p.pos.h=15
@@ -482,30 +526,35 @@ function create_wanderer(_x,_y, _type, _sprtab)
 		end
 	end
 	p.behavior=create_timer(function()
-		if not ent_off_cam(p) then
+		if not ent_off_cam(p) and p.act then
 			update_coll_box(p)
 			check_collision(p)
 			ai__move_to_target(p)
 			move_entity(p)
+		elseif not ent_off_cam(p) and not p.act then
+			if (p.spawning) spawn_effect(p)
 		end
 	end,1,true)
 	p.pathing = create_timer(function()
-		if not ent_off_cam(p) then
+		if not ent_off_cam(p) and p.act then
 			p.targ=ai__pick_player_target(p)
 			ai__rotate_to_target(p)
 			ai__path_to_players(p)
 		end
 	end,1,true)
 	if (_type==2) then
-		p.spawning = create_timer(function()
-			if not ent_off_cam(p) then
-				for i=0,240 do
+		printh('make spawner routine')
+		p.spawner = create_timer(function()
+			local x,y=p.pos.x,p.pos.y
+			if not ent_off_cam(p) and p.act then
+				for i=0,200 do
 					yield()
 				end
-				printh('spawn a tiny goomba')
+				local a=p.mot.ang
+				create_wanderer(x+p.pos.w/2,y+p.pos.h/2, 1)
 			end
 		end,1,true)
-		add(routines, p.spawning)
+		add(routines, p.spawner)
 	end
 	add(routines, p.behavior)
 	add(aroutines, p.pathing)
@@ -516,15 +565,15 @@ end
 
 function ai__steer(e, d)
 	local sspd = ai_steer_spd+0.1
-	if d<-0.125 then
-		e.mot.a=e.mot.oa*1.5
-		e.mot.ang+=sspd
-	elseif d<0 then
+	-- if d<-0.125 then
+	-- 	e.mot.a=e.mot.oa*1.5
+	-- 	e.mot.ang+=sspd
+	if d<0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
-	elseif d>0.125 then
-		e.mot.a=e.mot.oa
-		e.mot.ang-=sspd*1.5
+	-- elseif d>0.125 then
+	-- 	e.mot.a=e.mot.oa
+	-- 	e.mot.ang-=sspd*1.5
 	elseif d>0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang-=sspd
@@ -558,10 +607,10 @@ function ai__path_to_players(e)
 		yield() -- yield processing back to main loop
 		for i, ent in pairs(entities) do -- loop through entities to see if any are colliding with path pixel
 
-			if e.pid ~= ent.pid and ent.pid>1 then -- If the entity is another enemy, then continue
+			if e ~= ent and ent.pid>1 then -- If the entity is another enemy, then continue
 				if check_pos_collision(tx,ty, ent.coll_box) then -- if colliding with another enemy
 					if e.pid==3 and ent.pid==2 then
-						ai__steer(ent,n) -- steer function to avoid clumping of mobs
+						ai__steer(ent,n*1.5) -- steer function to avoid clumping of mobs
 					else
 						ai__steer(e,n) -- steer function to avoid clumping of mobs
 					end
@@ -736,7 +785,7 @@ function ent_drawing_rig(e)
 		end
 		gsp()
 		
-		if (e.act) draw_entity(e,animi)
+		if (e.act and not e.blink) draw_entity(e,animi)
 		
 		if (e.prev_tab ~= e.sprtab) animi=1 animpos=true 
 
@@ -826,7 +875,7 @@ function clean_ent(e)
 	del(aroutines,e.behavior)
 	del(routines,e.pathing)
 	del(aroutines,e.pathing)
-	del(routines, e.spawning)
+	del(routines, e.spawner)
 	del(drigs, e.draw_rig)
 	del(entities, e)
 end
@@ -1014,9 +1063,9 @@ end
 function init_stage1()
 	music(0)
 	for i=1, max_ents do
-		create_wanderer(randbi(146,240), randbi(24,100))
+		create_wanderer(randbi(146,220), randbi(24,100))
 	end
-	create_wanderer(randbi(146,240), randbi(24,100),2,{80,82,84,82})
+	create_wanderer(randbi(146,220), randbi(24,100),2,{80,82,84,82})
 	init_players()
 	players[2].act=false
 	
@@ -1367,14 +1416,14 @@ ddd6c7201dd6c720166cc720ddd6cc101cc6cc101dd6cc1043744674476446744764473400700700
 27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e1013bb331013bb331013bb331013bb3310092222904ffffff20000000000000000
 02999920002992000029920000299200012222100012210000122100001221001333331013333310133333101333331002999920122222210000000000000000
 00222200000220000002200000022000001111000001100000011000000110000111110001111100011111000111110000222200000420000000000000000000
-00000000000700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-78000000008880000000087000000000000000000000000000000000000000000800000080000000000000000000000000000000000000000000000000000000
-87000000000700000000078000000000000000000000000000000000880000008800000000000000000000000000000000000000000000000000000000000000
-0070000000070000000070000000000000000000000000d000000d0d888888008888880000888800000088800000088000000080000000000000000000000000
-006600000066600000066000000000000000000000000d0d00006000877778808777778888777788888877780088877800000878000000880000000800000000
-007d7000007d7000007d70000000000000060d00000060d00000000d888888008888880000888800000088800000088000000080000000000000000000000000
-44676440446764404467644006000000006060000006060d00006060880000008800000000000000000000000000000000000000000000000000000000000000
-42222240422222404222224077600000777606000777606000770000000000000800000080000000000000000000000000000000000000000000000000000000
+00000000000700000000000000000000000000000000000000000000000000000000000000008000000080000000800000008000000080000000800000008000
+78000000008880000000087000000000000000000000000000000000000000000000000000008000000080000008780000087800000878000000800000000000
+87000000000700000000078000000000000000000000000000000000000000000000000000087800000878000008780000087800000080000000000000000000
+0070000000070000000070000000000000000000000000d000000d0d000000000000800000087800000878000008780000008000000000000000000000000000
+006600000066600000066000000000000000000000000d0d00006000000000000008880000087800000878000000800000008000000000000000000000000000
+007d7000007d7000007d70000000000000060d00000060d00000000d000000000008780000087800000878000000800000008000000000000000000000000000
+44676440446764404467644006000000006060000006060d00006060000000000008780008887888000080000000800000000000000000000000000000000000
+42222240422222404222224077600000777606000777606000770000000000000088888000888880080080080000800000000000000000000000000000000000
 00000000000000000000000000000000000550000077770000055000000550000005000000000000009000000000000000000000001000000111100000000000
 009aa900002882000000000000055000055dd55007777770055dd550055d0000055000000000000009a9000000a0000000000000017100001dddd10000000000
 09a77a900287f82000055000005dd50005d66d507777777705d6005005d0000005000000000000009a7a90000a7a00000070000017a910001d61100000000000
@@ -1547,7 +1596,7 @@ e000e0e0eee0ee00eee0000000000000000000000000000000000000000000000000000000000000
 
 __gff__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000010000010000000000000001010101010100000000010101000000000000000000
-0000000000000000000000000000000100000000000001000000000000000000000001000000000000000101010101010000000001010100000000000000000000000000000000000000000000000000000000000000010101000001010101010000000000000101010001010101010100000000000001010100010101010000
+0000000000000000000000000000000100000000000001000000000000000000000001000000000000000001010101010000000001010100000000000000000000000000000000000000000000000000000000000000010101000001010101010000000000000101010001010101010100000000000001010100010101010000
 __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
