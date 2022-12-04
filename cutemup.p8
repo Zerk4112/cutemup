@@ -10,8 +10,8 @@ function _init()
 	debug = true
 	mchunks = {}
 	printh('~~~~~~~~PROG INIT~~~~~~')
-	menuitem(1,"toggle player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
-	menuitem(2,"toggle debug", function() debug = not debug end)
+	menuitem(1,"toggle debug", function() debug = not debug end)
+	menuitem(2,"toggle player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
 	init_scenes()
 	ai_steer_spd=0.070
 	max_ents=2
@@ -450,6 +450,10 @@ function ai__rotate_to_target(e)
 
 end
 
+function spawn_effect(_x,_y)
+
+end
+
 function create_wanderer(_x,_y, _type, _sprtab)
 	local sprtab = _sprtab or {71,72,71,70}
 	local pid = 2
@@ -470,8 +474,6 @@ function create_wanderer(_x,_y, _type, _sprtab)
 		p.pos.w=15
 		p.pos.h=15
 		p.coll_box=create_coll_box(1, 5, 13, 13)
-
-		-- sprtab = {80,82,84,82}
 	end
 	
 	p.coll_box.coll_callback = function(cb, e) 
