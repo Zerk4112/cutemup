@@ -7,6 +7,7 @@ __lua__
 -- game loop
 
 function _init()
+	gravity_x,gravity_y=0,0.1
 	debug = false
 	mchunks = {}
 	printh('~~~~~~~~PROG INIT~~~~~~')
@@ -18,6 +19,7 @@ function _init()
 	drigs = {}
 	routines={}
 	entities={}
+	particles={}
 	cament = create_ent({}, -1, {x=0,y=0,w=4,h=4}, _mot, _coll_box)
 	del(drigs, cament.draw_rig)
 	del(entities, cament)
@@ -37,6 +39,8 @@ function _draw()
     cls()
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
 	local o = {}
+	manage_routines(particles)
+
 	if not cament.moving then
 		local ordered={}
 		for obj in all(entities) do
@@ -182,8 +186,14 @@ function create_bullet(_x,_y,_s,_a,_e)
 						sfx(4)
 						add(collided, e)
 						if (#collided>_e.stats.pierce) clean_ent(b)
+						for k = 1,8 do
+							create_particle(e.pos.x+e.pos.w/2,e.pos.y+e.pos.h/2,randbi(0,1),a+rnd(0.125)-rnd(0.125),randbi(20,35),randbi(120,360),randbi(4,24),{8}, update_gravity_particle)
+						end
 					elseif not vintab(e, collided) then
 						clean_ent(e)
+						for k = 1,64 do
+							create_particle(e.pos.x+e.pos.w/2,e.pos.y+e.pos.h/2,randbi(0,1),rnd(1)-rnd(0.5),20,randbi(60,360),randbi(2,24),{8}, update_gravity_particle)
+						end
 						e.act=false
 						clean_ent(b)
 						sfx(1)
@@ -470,22 +480,22 @@ function ai__rotate_to_target(e)
 
 end
 
-function spawn_effect(_e)
-	local sprtab = {175,174,173,172,171,170,169,168,178,179,180,181,182,183,184,185}
-	local spri=1
-	local d = 0.10
-	_e.spawning=false
-	local speff = create_timer(function()
-		for f in all(sprtab) do
-			for i=0,d,0.1 do
-				spr(f,_e.pos.x,_e.pos.y)
-				yield()
-			end
-		end
-		yields(3)
-		_e.act=true
-	end,1)
-	add(aroutines, speff)
+function create_dummy(_x, _y)
+
+	local p = create_ent({106}, 4, {
+		x=_x, --x
+		y=_y, --y,
+		w=_w or 7,
+		h=_h or 7
+	})
+	p.coll_box=create_coll_box(-1, 2, 9, 8)
+	p.stats.hp=999
+	p.behavior=create_timer(function()
+		update_coll_box(p)
+		check_collision(p)
+	end,1,true)
+	add(routines, p.behavior)
+	return p
 end
 
 function create_wanderer(_x,_y, _type, _sprtab)
@@ -502,11 +512,11 @@ function create_wanderer(_x,_y, _type, _sprtab)
 	p.act=false
 	p.spawning=true
 	p.coll_box=create_coll_box(-1, 2, 9, 8)
-	p.mot.mspd=0.35
+	p.mot.mspd=0.16
 	p.animdelay=18
 	if _type==2 then
 		p.stats.hp=20
-		p.mot.mspd=0.41
+		p.mot.mspd=0.14
 		p.mot.steerspd=0.065
 		p.animdelay=10
 		p.pos.w=15
@@ -534,14 +544,14 @@ function create_wanderer(_x,_y, _type, _sprtab)
 			p.targ=ai__pick_player_target(p)
 			ai__rotate_to_target(p)
 			ai__path_to_players(p)
-			if (debug) print(p.mot.ang..":"..p.mot.steerspd,p.pos.x-2,p.pos.y-8)
+			-- if (debug) print(p.mot.ang..":"..p.mot.steerspd,p.pos.x-2,p.pos.y-8)
 		end
 	end,1,true)
 	if (_type==2) then
 		p.spawner = create_timer(function()
 			local x,y=p.pos.x,p.pos.y
 			if not ent_off_cam(p) and p.act then
-				for i=0,300 do
+				for i=0,200 do
 					yield()
 				end
 				local a=p.mot.ang
@@ -757,6 +767,92 @@ end
 
 -->8
 -- animation and draw helpers
+
+function ballisticlaunchspeed(ox,oy, tx,ty, gx,gy, frames)
+    return (tx-ox)/frames-(gx*frames)/2,(ty-oy)/frames-(gy*frames)/2
+end
+
+function getposfromang(a,_d)
+	local d = _d or 1
+	return cos(a)*d, sin(a)*d
+end
+
+function blood_splatter(p)
+
+
+end
+
+
+function update_gravity_particle(p)
+	p.x+=p.dx
+	p.y+=p.dy
+	p.dx+=gravity_x
+	p.dy+=gravity_y
+end
+
+function update_dumb_particle(p)
+	p.x+=p.dx
+	p.y+=p.dy
+end
+
+function init_particle()
+end
+
+function create_particle(_x,_y,_r,_a,_tt,_lt,_s,_pal, _rtn)
+	local traveltime=0
+	local tt = _tt or 30 + randbi(0,60)
+	printh(_r)
+	local p = {
+		x=_x,
+		y=_y,
+		r=_r or 0,
+		s=_s or 1,
+		a=_a,
+		tt=tt,
+		lt=_lt or 0,
+		pal = _pal or {7},
+		pi=1,
+		update = _rtn or update_dumb_particle
+	}
+	local tx,ty = _x+cos(_a)*_s,_y+sin(_a)*_s
+	p.dx,p.dy = ballisticlaunchspeed(_x,_y,tx,ty,gravity_x,gravity_y,_tt)
+	local np = create_timer(function()
+		
+		repeat
+		-- while lifetime~=p.l do
+			circfill(p.x,p.y,p.r,p.pal[p.pi])
+			p:update(p)
+			traveltime+=1
+			yield()
+		-- end
+		until traveltime==p.tt
+		for lt=0,p.lt do
+			circfill(p.x,p.y,p.r,p.pal[p.pi])
+			yield()
+		end
+		del(particles, np)
+	end,1)
+	add(particles, np)
+end
+
+function spawn_effect(_e)
+	local sprtab = {175,174,173,172,171,170,169,168,178,179,180,181,182,183,184,185}
+	local spri=1
+	local d = 0.10
+	_e.spawning=false
+	local speff = create_timer(function()
+		for f in all(sprtab) do
+			for i=0,d,0.1 do
+				spr(f,_e.pos.x,_e.pos.y)
+				yield()
+			end
+		end
+		yields(3)
+		_e.act=true
+	end,1)
+	add(aroutines, speff)
+end
+
 function ent_drawing_rig(e)
 	local animi = 1
 	local animpos = true
@@ -785,7 +881,7 @@ function ent_drawing_rig(e)
 		end
 		gsp()
 		
-		if (e.act and not e.blink) draw_entity(e,animi)
+		if (e.act and not e.blink and e.pid~=-10) draw_entity(e,animi)
 		
 		if (e.prev_tab ~= e.sprtab) animi=1 animpos=true 
 
@@ -862,6 +958,7 @@ function manage_routine(routine)
             del(aroutines, routine)
 			del(routines, routine)
 			del(drigs, routine)
+			del(particles, routine)
 		end
 	end
 end
@@ -901,7 +998,7 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 			dx=0, --dx
 			dy=0, --dy,
 			a=0.075,
-			mspd=0.72,
+			mspd=0.55,
 			drg=0.9,
 			ang=0,
 			steerspd=0.018
@@ -1067,6 +1164,7 @@ function init_stage1()
 		create_wanderer(randbi(146,220), randbi(24,100))
 	end
 	create_wanderer(randbi(146,220), randbi(24,100),2,{80,82,84,82})
+	create_dummy(64,64)
 	init_players()
 	players[2].act=false
 	
@@ -1386,13 +1484,13 @@ ddd6c7201dd6c720166cc720ddd6cc101cc6cc101dd6cc1043744674476446744764473400700700
 4733764441d6776446776d1441d6776446776d144467337401781102211187100044440079999440077111000011177000000000000000000000000000000000
 47337644446733744733764444673374473376444467337420110200002011020004444004444400000007700770000000000000000000000000000000000000
 47337648846733744733764444673374473376488467337400111100000000001111111111111111000000000000000000000000000000000000000000000000
-473376888867337447337648846733744733768888673374011333100001110018fff8f116fff6f1000000000000000000000000000000000000000000000000
-4477648888673374473376888867337447337688884677440137b710001133101789978117699761000000000000000000000000000000000000000000000000
-0444442288467744447764888846774444776488224444400131b1100117b7101789978117699761000000000000000000000000000000000000000000000000
-01111fff22444440044444222244444004444422fff1111011bbb3100131b1101f9999911f999991000000000000000000000000000000000000000000000000
-1dd51ffffff1111001111ffffff1111001111ffffff15dd113bb131011bbb3101f9888811f966661000000000000000000000000000000000000000000000000
-11111000fff15dd11dd51ffffff15dd11dd51fff0001111113bb131013bb13101f8888811f666661000000000000000000000000000000000000000000000000
-00000000000111111111100000011111111110000000000013bbb31013bb13111111111111111111000000000000000000000000000000000000000000000000
+473376888867337447337648846733744733768888673374011333100001110018fff8f116fff6f1004444400000000000000000000000000000000000000000
+4477648888673374473376888867337447337688884677440137b710001133101789978117699761044444440000000000000000000000000000000000000000
+0444442288467744447764888846774444776488224444400131b1100117b7101789978117699761044544540000000000000000000000000000000000000000
+01111fff22444440044444222244444004444422fff1111011bbb3100131b1101f9999911f999991004455400000000000000000000000000000000000000000
+1dd51ffffff1111001111ffffff1111001111ffffff15dd113bb131011bbb3101f9888811f966661004444000000000000000000000000000000000000000000
+11111000fff15dd11dd51ffffff15dd11dd51fff0001111113bb131013bb13101f8888811f666661044444400000000000000000000000000000000000000000
+00000000000111111111100000011111111110000000000013bbb31013bb13111111111111111111004004000000000000000000000000000000000000000000
 000570000000000000000000000d5000111111111111111111111111111111111111111111111111111111110000000000000000000000000000000000000000
 00076000000760000006d0000005700012ffff211f2fff2112fff2f118ffff8116ffff611f8fff811f6fff610000000000000000000000000000000000000000
 0076d5000006d000000d500000576d00172992711279927117299721178998711769967118799871167996710000000000000000000000000000000000000000
@@ -1596,7 +1694,7 @@ e000e0e0eee0ee00eee0000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 __gff__
-0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000010000010000000000000001010101010100000000010101000000000000000000
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000010000010000000000000000010101010100000000010101000000000000000000
 0000000000000000000000000000000100000000000001000000000000000000000001000000000000000001010101010000000001010100000000000000000000000000000000000000000000000000000000000000010101000001010101010000000000000101010001010101010100000000000001010100010101010000
 __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
