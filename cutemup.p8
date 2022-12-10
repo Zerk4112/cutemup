@@ -7,7 +7,8 @@ __lua__
 -- game loop
 
 function _init()
-	debug = true
+	gravity_x,gravity_y=0,0.1
+	debug = false
 	mchunks = {}
 	printh('~~~~~~~~PROG INIT~~~~~~')
 	menuitem(1,"toggle debug", function() debug = not debug end)
@@ -18,6 +19,7 @@ function _init()
 	drigs = {}
 	routines={}
 	entities={}
+	particles={}
 	cament = create_ent({}, -1, {x=0,y=0,w=4,h=4}, _mot, _coll_box)
 	del(drigs, cament.draw_rig)
 	del(entities, cament)
@@ -37,6 +39,8 @@ function _draw()
     cls()
 	if (current_scene~=nil and current_scene.draw~=nil) current_scene:draw()
 	local o = {}
+	manage_routines(particles)
+
 	if not cament.moving then
 		local ordered={}
 		for obj in all(entities) do
@@ -182,9 +186,14 @@ function create_bullet(_x,_y,_s,_a,_e)
 						sfx(4)
 						add(collided, e)
 						if (#collided>_e.stats.pierce) clean_ent(b)
-						blood_splatter(bx,by,a)
+						for k = 1,8 do
+							create_particle(e.pos.x+e.pos.w/2,e.pos.y+e.pos.h/2,randbi(0,1),a+rnd(0.125)-rnd(0.125),randbi(20,35),randbi(120,360),randbi(4,24),{8}, update_gravity_particle)
+						end
 					elseif not vintab(e, collided) then
 						clean_ent(e)
+						for k = 1,64 do
+							create_particle(e.pos.x+e.pos.w/2,e.pos.y+e.pos.h/2,randbi(0,1),rnd(1)-rnd(0.5),20,randbi(60,360),randbi(2,24),{8}, update_gravity_particle)
+						end
 						e.act=false
 						clean_ent(b)
 						sfx(1)
@@ -542,7 +551,7 @@ function create_wanderer(_x,_y, _type, _sprtab)
 		p.spawner = create_timer(function()
 			local x,y=p.pos.x,p.pos.y
 			if not ent_off_cam(p) and p.act then
-				for i=0,300 do
+				for i=0,200 do
 					yield()
 				end
 				local a=p.mot.ang
@@ -763,44 +772,67 @@ function ballisticlaunchspeed(ox,oy, tx,ty, gx,gy, frames)
     return (tx-ox)/frames-(gx*frames)/2,(ty-oy)/frames-(gy*frames)/2
 end
 
-function blood_splatter(_x,_y,_a)
-	local c=8
-	for a=-0.100,0.100,0.050 do
-		local j = randbi(-10,2)
-		if (1+j==3) c=14
-		px_particle(_x,_y, _a+a,randbi(12,24),60,c)
-	end
+function getposfromang(a,_d)
+	local d = _d or 1
+	return cos(a)*d, sin(a)*d
 end
-function px_particle(_x,_y,_a,_s,_l,_c)
-	local p = create_ent({}, -10, {
-		x=_x, --x
-		y=_y, --y,
-		w=1,
-		h=1
-	})
-	local s=_s or 16
-	p.mot.drg=1
-	local tx,ty = _x+cos(_a+1)*s, _y+sin(_a+1)*s
-	local l = _l or 60
-	p.mot.dx,p.mot.dy=ballisticlaunchspeed(_x,_y, tx,ty, 0,0.005, l/s)
-	local pal = _pal or {7}
-	p.behavior = create_timer(function()
-		for f=0,l/s do
-			p.mot.dy+=0.005
-			-- move_entity(p)
-			p.pos.x+=p.mot.dx
-			p.pos.y+=p.mot.dy
-			pset(p.pos.x,p.pos.y,_c)
+
+function blood_splatter(p)
+
+
+end
+
+
+function update_gravity_particle(p)
+	p.x+=p.dx
+	p.y+=p.dy
+	p.dx+=gravity_x
+	p.dy+=gravity_y
+end
+
+function update_dumb_particle(p)
+	p.x+=p.dx
+	p.y+=p.dy
+end
+
+function init_particle()
+end
+
+function create_particle(_x,_y,_r,_a,_tt,_lt,_s,_pal, _rtn)
+	local traveltime=0
+	local tt = _tt or 30 + randbi(0,60)
+	printh(_r)
+	local p = {
+		x=_x,
+		y=_y,
+		r=_r or 0,
+		s=_s or 1,
+		a=_a,
+		tt=tt,
+		lt=_lt or 0,
+		pal = _pal or {7},
+		pi=1,
+		update = _rtn or update_dumb_particle
+	}
+	local tx,ty = _x+cos(_a)*_s,_y+sin(_a)*_s
+	p.dx,p.dy = ballisticlaunchspeed(_x,_y,tx,ty,gravity_x,gravity_y,_tt)
+	local np = create_timer(function()
+		
+		repeat
+		-- while lifetime~=p.l do
+			circfill(p.x,p.y,p.r,p.pal[p.pi])
+			p:update(p)
+			traveltime+=1
+			yield()
+		-- end
+		until traveltime==p.tt
+		for lt=0,p.lt do
+			circfill(p.x,p.y,p.r,p.pal[p.pi])
 			yield()
 		end
-		for f=0,l/2+randbi(20,40) do
-			pset(p.pos.x,p.pos.y,_c)
-			yield()
-		end
-		clean_ent(p)
+		del(particles, np)
 	end,1)
-	add(aroutines, p.behavior)
-	return p
+	add(particles, np)
 end
 
 function spawn_effect(_e)
@@ -926,6 +958,7 @@ function manage_routine(routine)
             del(aroutines, routine)
 			del(routines, routine)
 			del(drigs, routine)
+			del(particles, routine)
 		end
 	end
 end
