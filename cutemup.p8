@@ -1041,7 +1041,7 @@ function draw_entity(e,i)
 			local x,y,w,h = e.pos.x,e.pos.y,e.pos.w,e.pos.h
 			ovalfill(x,y+h,x+w,y+h+2,0)
 			if (#e.pal>0) swap_pal(e.pal)
-			spr(e.sprtab[i],e.pos.x, e.pos.y,ceil(e.pos.w/8),ceil(e.pos.h/8), e.sprflip)
+			spr(e.sprtab[i],x, y,ceil(w/8),ceil(h/8), e.sprflip)
 			pal()
 			e.prev_tab = e.sprtab
 		end
@@ -1061,19 +1061,18 @@ end
 
 function move_entity(p)
 	p.context_show=false
-	
 
 	p.mot.dx=mid(-p.mot.mspd,p.mot.dx,p.mot.mspd)
 	p.mot.dy=mid(-p.mot.mspd,p.mot.dy,p.mot.mspd)
+	local dx,dy = p.mot.dx,p.mot.dy
 
 	wall_check(p)
 
-	if (can_move(p,p.mot.dx,p.mot.dy)) then
-		p.pos.x+=p.mot.dx
-		p.pos.y+=p.mot.dy
+	if (can_move(p,dx,dy)) then
+		p.pos.x+=dx
+		p.pos.y+=dy
 	else
-		tdx=p.mot.dx
-		tdy=p.mot.dy
+		tdx,tdy=p.mot.dx,p.mot.dy
 		while (not can_move(p,tdx,tdy)) do
 			if (abs(tdx)<=0.1) then
 				tdx=0
@@ -1086,19 +1085,18 @@ function move_entity(p)
 				tdy*=0.9
 			end
 			if tdx==0 and tdy==0 then
-				tdx=p.mot.dx*-1/10*0.9
-				tdy=p.mot.dy*-1/10*0.9
+				tdx=dx*-1/10*0.9
+				tdy=dy*-1/10*0.9
 				break
-
 			end
 		end
 		p.pos.x+=tdx
 		p.pos.y+=tdy
 	end 
-	if (abs(p.mot.dx)>0) p.mot.dx*=p.mot.drg
-	if (abs(p.mot.dy)>0) p.mot.dy*=p.mot.drg
-	if (abs(p.mot.dx)<0.01) p.mot.dx=0
-	if (abs(p.mot.dy)<0.01) p.mot.dy=0
+	if (abs(dx)>0) p.mot.dx*=p.mot.drg
+	if (abs(dy)>0) p.mot.dy*=p.mot.drg
+	if (abs(dx)<0.01) p.mot.dx=0
+	if (abs(dy)<0.01) p.mot.dy=0
 
 	pi=3.14
 end
