@@ -1116,41 +1116,42 @@ function init_scoreboard(p)
 		p.sx,p.sy = cament.pos.x+ox,cament.pos.y
 	end,1,true)
 	local r = create_timer(function()
-		local sx,sy = cament.pos.x+ox,cament.pos.y
+		
+		local sx,sy = p.sx,p.sy
 		local lives = p.stats.lives
-		rectfill(p.sx, p.sy, p.sx+60,p.sy+14, sc)
-		rect(p.sx-1, p.sy, p.sx+61,p.sy+14, 13)
+		rectfill(sx, sy, sx+60,sy+14, sc)
+		rect(sx-1, sy, sx+61,sy+14, 13)
 		if p.act then
 			local shp=158
 			local sox=1
 			for i=1,p.stats.max_hp do
 				if (i>p.stats.hp) shp=159
-				spr(shp,p.sx+sox,p.sy+2)
+				spr(shp,sx+sox,sy+2)
 				sox+=6
 			end
 			sox=0
 			for i=1,5 do
-				print('웃',p.sx+sox, p.sy+8,1)
+				print('웃',sx+sox, sy+8,1)
 				sox+=6
 			end
 			sox=0
 			for i=1,lives do
 				if (i>5)break
 				if (i>p.stats.hp) shp=159
-				print('웃',p.sx+sox, p.sy+8,7)
+				print('웃',sx+sox, sy+8,7)
 				sox+=6
 			end
 			local ammo = p.stats.ammo
 			if (p.stats.stype==1) ammo="○"
-			spr(189,p.sx+32,p.sy+2)
-			spr(190,p.sx+31,p.sy+8)
-			print(":"..p.stats.coin,p.sx+38, p.sy+2,1)
-			print(":"..ammo,p.sx+38, p.sy+8,1)
+			spr(189,sx+32,sy+2)
+			spr(190,sx+31,sy+8)
+			print(":"..p.stats.coin,sx+38, sy+2,1)
+			print(":"..ammo,sx+38, sy+8,1)
 		else
 			if lives <1 then
-				hor_wave_print("game over",p.sx+8,p.sy+5,7,2,t(),1.5) 
+				hor_wave_print("game over",sx+8,sy+5,7,2,t(),1.5) 
 			else
-				hor_wave_print("🅾️  to join!",p.sx+6,p.sy+5,7,2,t(),1.5) 
+				hor_wave_print("🅾️  to join!",sx+6,sy+5,7,2,t(),1.5) 
 			end
 		end
 		
@@ -1224,7 +1225,7 @@ function move_camera(newx,_newy, ie,ae)
 end
 
 function update_camera()
-	local p1p,cpos = players[1].pos,cament.pos
+	local p1p,cx,cy = players[1].pos,cament.pos.x,cament.pos.y
 	local ie,ae
 	for p in all(players) do
 		if ent_off_cam(p) then
@@ -1236,19 +1237,19 @@ function update_camera()
 	end
 	local x,y,w,h = p1p.x,p1p.y,p1p.w,p1p.h
 	if not cament.moving then
-		if x < cpos.x then
-			move_camera(cpos.x-128,cpos.y, ie, ae)
-		elseif x+w > cpos.x+127 then
-			move_camera(cpos.x+128,cpos.y, ie, ae)
+		if x < cx then
+			move_camera(cx-128,cy, ie, ae)
+		elseif x+w > cx+127 then
+			move_camera(cx+128,cy, ie, ae)
 		end
 
-		if y < cpos.y then
-			move_camera(cpos.x,cpos.y-128, ie, ae)
-		elseif y+h > cpos.y+127 then
-			move_camera(cpos.x,cpos.y+128, ie, ae)
+		if y < cy then
+			move_camera(cx,cy-128, ie, ae)
+		elseif y+h > cy+127 then
+			move_camera(cx,cy+128, ie, ae)
 		end
 	end
-	camera(cpos.x,cpos.y)
+	camera(cx,cy)
 end
 
 -->8
@@ -1353,18 +1354,21 @@ function check_collision(e)
 end
 
 function draw_coll_box(coll_box)
-    line(coll_box.cx_l,coll_box.cy_t,coll_box.cx_r,coll_box.cy_t,3)
-    line(coll_box.cx_l,coll_box.cy_b,coll_box.cx_r,coll_box.cy_b,14)
-    line(coll_box.cx_l,coll_box.cy_t,coll_box.cx_l,coll_box.cy_b,12)
-    line(coll_box.cx_r,coll_box.cy_t,coll_box.cx_r,coll_box.cy_b,2)
+	local cl,cr,ct,cb = coll_box.cx_l,coll_box.cx_r,coll_box.cy_t,coll_box.cy_b
+    line(cl,ct,cr,ct,3)
+    line(cl,cb,cr,cb,14)
+    line(cl,ct,cl,cb,12)
+    line(cr,ct,cr,cb,2)
 
 end
 
 function update_coll_box(e)
-    e.coll_box.cx_l = e.pos.x + e.coll_box.cx
-    e.coll_box.cx_r = e.pos.x + e.coll_box.cx + e.coll_box.cw
-    e.coll_box.cy_t = e.pos.y + e.coll_box.cy
-    e.coll_box.cy_b = e.pos.y + e.coll_box.cy + e.coll_box.ch
+	local cb = e.coll_box
+
+    cb.cx_l = e.pos.x + cb.cx
+    cb.cx_r = e.pos.x + cb.cx + cb.cw
+    cb.cy_t = e.pos.y + cb.cy
+    cb.cy_b = e.pos.y + cb.cy + cb.ch
 end
 
 function can_move(a,dx,dy)
@@ -1406,29 +1410,30 @@ function solid(x,y)
 end
 
 function wall_check(a)
-	if (a.mot.dx<0) then
-		local wall_top_left=solid(a.pos.x-1,a.pos.y)
-		local wall_btm_left=solid(a.pos.x-1,a.pos.y+a.pos.h)
+	local x,y,w,h,dx,dy = a.pos.x,a.pos.y,a.pos.w,a.pos.h,a.mot.dx,a.mot.dy
+	if (dx<0) then
+		local wall_top_left=solid(x-1,y)
+		local wall_btm_left=solid(x-1,y+h)
 		if (wall_top_left or wall_btm_left) then
 			a.mot.dx=0
 		end
-	elseif (a.mot.dx>0) then
-		local wall_top_right=solid(a.pos.x+a.pos.w+1,a.pos.y)
-		local wall_btm_right=solid(a.pos.x+a.pos.w+1,a.pos.y+a.pos.h)
+	elseif (dx>0) then
+		local wall_top_right=solid(x+w+1,y)
+		local wall_btm_right=solid(x+w+1,y+h)
 	if (wall_top_right or wall_btm_right) then
 		a.mot.dx=0
 	end
 end
 
-	if (a.mot.dy<0) then
-		local wall_top_left=solid(a.pos.x,a.pos.y-1)
-		local wall_top_right=solid(a.pos.x+a.pos.w,a.pos.y-1)
+	if (dy<0) then
+		local wall_top_left=solid(x,y-1)
+		local wall_top_right=solid(x+w,y-1)
 		if (wall_top_left or wall_top_right) then
 			a.mot.dy=0
 		end
-	elseif (a.mot.dy>0) then
-			local wall_btm_left=solid(a.pos.x,a.pos.y+a.pos.h+1)
-			local wall_btm_right=solid(a.pos.x+a.pos.w,a.pos.y+a.pos.h+1)
+	elseif (dy>0) then
+			local wall_btm_left=solid(x,y+h+1)
+			local wall_btm_right=solid(x+w,y+h+1)
 		if (wall_btm_right or wall_btm_left) then
 			a.mot.dy=0
 		end
