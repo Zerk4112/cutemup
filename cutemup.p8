@@ -399,21 +399,21 @@ function update_controls(p)
 	if (btn(0,p.pid)) then
 		if not p.td then
 			p.mot.dx-=p.mot.a 
-			p.sprflip=true
+			-- p.sprflip=true
 			if (not btn(5,p.pid)) p.chdx=-10 
 		end
 	end
 	if (btn(1,p.pid)) then 
 		if not p.td then
 			p.mot.dx+=p.mot.a 
-			p.sprflip=false
+			-- p.sprflip=false
 			if (not btn(5,p.pid)) p.chdx=10 
 		end
 	end
 	if (btn(2,p.pid)) then 
 		if not p.td then
 			p.mot.dy-=p.mot.a 
-			p.sprhflip=true
+			-- p.sprhflip=true
 			if (not btn(5,p.pid)) p.chdy=-10 
 
 		end
@@ -421,7 +421,7 @@ function update_controls(p)
 	end
 	if (btn(3,p.pid)) then 
 		if not p.td then
-			p.sprhflip=false
+			-- p.sprhflip=false
 			p.mot.dy+=p.mot.a
 			if (not btn(5,p.pid)) p.chdy=10 
 		end
@@ -429,26 +429,26 @@ function update_controls(p)
 	
 	if btn(5, p.pid) then
 		-- p.shooting=true
-		if not p.dodging then
-			p.sprflip=p.ps
-			p.sprhflip=p.psh
-		else
-			p.ps = p.sprflip
-			p.psh = p.sprhflip
-		end
-
 		if p.srtn == nil then 
 			p.shooting=true
 			if (not p.dodging and not p.td) player_shoot(p)
 		end
-	else
-		p.ps = p.sprflip
-		p.psh = p.sprhflip
 	end
 	if (btn(4, p.pid)) then
 		if not p.dodging and p.moving then
 			if (not p.td) player_dodge(p)
 		end
+		
+	end
+	if p.chdx==-10 then
+		p.sprflip=true
+	else
+		p.sprflip=false
+	end
+	if p.chdy==-10 then
+		p.sprhflip=true
+	else
+		p.sprhflip=false
 		
 	end
 	local x,y=p.pos.x+3.5,p.pos.y+3.5
