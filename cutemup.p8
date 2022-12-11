@@ -185,16 +185,8 @@ function create_bullet(_x,_y,_s,_a,_e)
 						e.stats.hp-=1
 						sfx(4)
 						add(collided, e)
-						-- local spd = e.mot.mspd
-						-- add(routines,create_timer(function()
-						-- 	for i=0,2 do
-						-- 		e.mot.mspd=e.mot.mspd/1.1
-						-- 		printh('test')
-						-- 		yield()
-						-- 	end
-						-- 	e.mot.mspd=spd
-						-- end,1))
-						e.mot.ang+=0.5
+						-- e.mot.ang+=0.5
+						e.mot.ang=a+.5
 						printh(e.mot.ang)
 						if (#collided>_e.stats.pierce) clean_ent(b)
 						for k = 1,8 do
@@ -278,17 +270,19 @@ function player_damframes(p, _f, _b)
 	local f = _f or 10
 	local blink = _b
 	if (blink==nil) blink = true
-	p.invinframes = create_timer(function()
-		for i=1,f do
-			if (blink) p.blink = not p.blink 
-			yields(5)
-		end
-		p.blink=false
-		del(routines,p.invinframes)
-		p.invinframes = nil
-		
-	end,1) 
-	add(routines,p.invinframes)
+	if p.invinframes==nil then
+		p.invinframes = create_timer(function()
+			for i=1,f do
+				if (blink) p.blink = not p.blink 
+				yields(5)
+			end
+			p.blink=false
+			del(routines,p.invinframes)
+			p.invinframes = nil
+			
+		end,1) 
+		add(routines,p.invinframes)
+	end
 end
 
 function player_takedam(p,e)
@@ -380,56 +374,57 @@ function check_respawn(p)
 end
 
 function update_controls(p)
-	if (not btn(0, p.pid) and not btn(1, p.pid)) and (btn(2, p.pid) or btn(3, p.pid)) and not btn(5,p.pid) then
+	local pid,a,td = p.pid,p.mot.a,p.td
+	if (not btn(0, pid) and not btn(1, pid)) and (btn(2, pid) or btn(3, pid)) and not btn(5,pid) then
 		p.chdx=0
 	else
-		if p.sprflip and not btn(5,p.pid)then
+		if p.sprflip and not btn(5,pid)then
 			p.chdx=-10
-		elseif not btn(5,p.pid) then
+		elseif not btn(5,pid) then
 			p.chdx=10
 		end
 	end
-	if not btn(2, p.pid) and not btn(3, p.pid) and not btn(5,p.pid) then
+	if not btn(2, pid) and not btn(3, pid) and not btn(5,pid) then
 		p.chdy=0
 	end
 	local ps = p.shooting
 	if p.mot.dy <=0.1 and p.mot.dy >= -0.1 and not ps then
 		p.sprhflip = false
 	end
-	if (btn(0,p.pid)) then
-		if not p.td then
-			p.mot.dx-=p.mot.a 
-			if (not btn(5,p.pid)) p.chdx=-10 
+	if (btn(0,pid)) then
+		if not td then
+			p.mot.dx-=a 
+			if (not btn(5,pid)) p.chdx=-10 
 		end
 	end
-	if (btn(1,p.pid)) then 
-		if not p.td then
-			p.mot.dx+=p.mot.a 
-			if (not btn(5,p.pid)) p.chdx=10 
+	if (btn(1,pid)) then 
+		if not td then
+			p.mot.dx+=a 
+			if (not btn(5,pid)) p.chdx=10 
 		end
 	end
-	if (btn(2,p.pid)) then 
-		if not p.td then
-			p.mot.dy-=p.mot.a 
-			if (not btn(5,p.pid)) p.chdy=-10 
+	if (btn(2,pid)) then 
+		if not td then
+			p.mot.dy-=a 
+			if (not btn(5,pid)) p.chdy=-10 
 		end
 	end
-	if (btn(3,p.pid)) then 
-		if not p.td then
-			p.mot.dy+=p.mot.a
-			if (not btn(5,p.pid)) p.chdy=10 
+	if (btn(3,pid)) then 
+		if not td then
+			p.mot.dy+=a
+			if (not btn(5,pid)) p.chdy=10 
 		end
 	end
 	
-	if btn(5, p.pid) then
+	if btn(5, pid) then
 		if p.srtn == nil then 
 			p.shooting=true
-			if (not p.dodging and not p.td) player_shoot(p)
+			if (not p.dodging and not td) player_shoot(p)
 		end
 	end
-	if (btn(4, p.pid)) then
+	if (btn(4, pid)) then
 		if not p.dodging and p.moving then
-			if (not p.td) player_dodge(p)
+			if (not td) player_dodge(p)
 		end
 		
 	end
@@ -466,17 +461,19 @@ end
 -- entity ai functions
 function ai__rotate_to_target(e) 
 	local t = e.targ
-	local ex,ey = e.pos.x+e.pos.w/2, e.pos.y+e.pos.h/2
-	local tx,ty = t.pos.x+t.pos.w/2, t.pos.y+t.pos.h/2
+	local a = e.mot.ang
+	local epos,tpos = e.pos,t.pos
+	local ex,ey = epos.x+epos.w/2, epos.y+epos.h/2
+	local tx,ty = tpos.x+tpos.w/2, tpos.y+tpos.h/2
 	-- angle code credits: https://www.gamedev.net/forums/topic/679527-rotate-towards-a-target-angle/ USER https://www.gamedev.net/draika-the-dragon/
 	local aim_ang=oaget(t,e)
 	if (not t.act) aim_ang=oaget(e,t)
 	local desiredanglem1=aim_ang-1
 	local desiredanglep1=aim_ang+1
 	
-	local dadiff=abs(aim_ang-e.mot.ang)
-	local dam1diff=abs(desiredanglem1-e.mot.ang)
-	local dap1diff=abs(desiredanglep1-e.mot.ang)
+	local dadiff=abs(aim_ang-a)
+	local dam1diff=abs(desiredanglem1-a)
+	local dap1diff=abs(desiredanglep1-a)
 	local closestuniverse=aim_ang
 	closestdifftozero=dadiff
 	if dam1diff<closestdifftozero then
