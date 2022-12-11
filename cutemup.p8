@@ -421,14 +421,12 @@ function update_controls(p)
 	end
 	if (btn(3,p.pid)) then 
 		if not p.td then
-			-- p.sprhflip=false
 			p.mot.dy+=p.mot.a
 			if (not btn(5,p.pid)) p.chdy=10 
 		end
 	end
 	
 	if btn(5, p.pid) then
-		-- p.shooting=true
 		if p.srtn == nil then 
 			p.shooting=true
 			if (not p.dodging and not p.td) player_shoot(p)
@@ -451,8 +449,7 @@ function update_controls(p)
 		p.sprhflip=false
 		
 	end
-	local x,y=p.pos.x+3.5,p.pos.y+3.5
-	p.chx,p.chy=x+p.chdx,y+p.chdy
+	p.chx,p.chy=p.pos.x+3.5+p.chdx,p.pos.y+3.5+p.chdy
 end
 
 function tbl_dump(o)
