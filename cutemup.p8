@@ -159,7 +159,7 @@ end
 
 function create_bullet(_x,_y,_s,_a,_e)
 	local collided = {}
-	local dx,dy = cos(_a)*_s,sin(_a)*_s
+	local dx,dy = getposfromang(_a,_s)
 	local b = create_ent({}, -2, {x=_x,y=_y,w=1,h=1}, {
 		dx=dx, --dx
 		dy=dy, --dy,
@@ -173,7 +173,7 @@ function create_bullet(_x,_y,_s,_a,_e)
 		move_entity(b)
 		local bx,by = b.pos.x,b.pos.y
 		local a = aget(_x,_y,bx,by)
-		local ddx,ddy = cos(a)*(-_s*2), sin(a)*(-_s*2)
+		local ddx,ddy = getposfromang(a,-_s*2)
 		circfill(bx,by,1,1)
 
 		line(bx,by,bx+ddx,by+ddy,6)
@@ -290,7 +290,7 @@ function player_takedam(p,e)
 		p.td=true
 		
 		local a = oaget(e,p)
-		local dx,dy = cos(a)*2, sin(a)*2
+		local dx,dy = getposfromang(a, 2)
 		if (p.stats.hp>0)p.stats.hp-=1
 		p.tdr = create_timer(function()
 			sfx(2)
@@ -587,15 +587,9 @@ end
 
 function ai__steer(e, d)
 	local sspd = e.mot.steerspd+0.1
-	-- if d<-0.125 then
-	-- 	e.mot.a=e.mot.oa*1.5
-	-- 	e.mot.ang+=sspd
 	if d<0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
-	-- elseif d>0.125 then
-	-- 	e.mot.a=e.mot.oa
-	-- 	e.mot.ang-=sspd*1.5
 	elseif d>0 then
 		e.mot.a=e.mot.oa
 		e.mot.ang-=sspd
@@ -603,8 +597,6 @@ function ai__steer(e, d)
 	
 	if (e.mot.ang>1) e.mot.ang=0
 	if (e.mot.ang<0) e.mot.ang=0.999
-	-- yield()
-
 end
 
 function ai__pick_player_target(e)
@@ -624,7 +616,6 @@ function ai__path_to_players(e)
 	local r = 1
 	if (e.pid==3) r=1.5
 	for n=-0.25,0.25, 0.125 do -- draw 3 pixels. One in front, and one on each side
-		
 		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*e.pos.w/r) -- define x for current pixel
 		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*e.pos.h/r)+1 -- define y for current pixel
 		if solid(tx,ty) then
@@ -651,8 +642,7 @@ function ai__path_to_players(e)
 end
 
 function ai__move_to_target(ent)
-	ent.mot.dx=cos(ent.mot.ang)*-1
-	ent.mot.dy=sin(ent.mot.ang)*-1
+	ent.mot.dx,ent.mot.dy=getposfromang(ent.mot.ang,-1)
 end
 
 -->8
@@ -794,12 +784,6 @@ function getposfromang(a,_d)
 	local d = _d or 1
 	return cos(a)*d, sin(a)*d
 end
-
-function blood_splatter(p)
-
-
-end
-
 
 function update_gravity_particle(p)
 	p.x+=p.dx
@@ -1215,12 +1199,10 @@ end
 	
 function move_camera(newx,_newy, ie,ae)
 	newy = _newy or cament.pos.y
-	local dx,dy = 0,0
 	cament.moving = true
 	local tdst=2
-	local a = aget(newx,newy,cament.pos.x,cament.pos.y)
-	dx-=cos(a)
-	dy-=sin(a)
+	local a = aget(newx,newy,cament.pos.x,cament.pos.y)+.5
+	local dx,dy = getposfromang(a)
 	local newr = create_timer(function()
 		while tdst>1 do
 			tdst = dst_basic(newx,newy,cament.pos.x,cament.pos.y)
