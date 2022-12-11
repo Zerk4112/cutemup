@@ -143,18 +143,17 @@ function init_players()
 			if (p.dying)  p.sprtab=pdying
 			if (p.dead) p.sprtab=pdead
 		end,1,true)
+		p.draw = create_timer(function()
+			if btn(5,p.pid) then
+				circ(p.chx,p.chy,1,10)
+				circ(p.chx,p.chy,4,8)
+			end
+		end,1,true)
+		add(aroutines, p.draw)
 		add(routines, p.logic)
 		add(players, p)
 		init_scoreboard(p)
 	end
-end
-
-function player_collide(self, e)
-	-- if e~=nil then
-	-- 	printh('collided with '..e.pid)
-	-- else
-	-- 	printh('collided with unknown object')
-	-- end
 end
 
 function create_bullet(_x,_y,_s,_a,_e)
@@ -185,8 +184,7 @@ function create_bullet(_x,_y,_s,_a,_e)
 						e.stats.hp-=1
 						sfx(4)
 						add(collided, e)
-						-- e.mot.ang+=0.5
-						e.mot.ang=a+.5
+						ai__steer(e,0)
 						printh(e.mot.ang)
 						if (#collided>_e.stats.pierce) clean_ent(b)
 						for k = 1,8 do
@@ -317,9 +315,6 @@ function player_takedam(p,e)
 end
 
 function player_shoot(p)
-	
-	local chr = nil
-	
 	local r = create_timer(function()
 		local i=0
 		local x,y=0,0
@@ -330,25 +325,6 @@ function player_shoot(p)
 			i+=1
 			if (btn(5,p.pid) and i==p.shtdelay) i=0
 			if (i==p.shtdelay) break
-
-			if btn(5,p.pid) then
-				if chr==nil then
-					a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
-					local ch = create_timer(function()
-						while btn(5, p.pid) and not p.dodging and not p.td do
-							circ(p.chx,p.chy,1,10)
-							circ(p.chx,p.chy,4,8)
-							yield()
-						end
-					end,1) 
-					add(aroutines, ch)
-					chr=ch
-
-				end
-			else
-				del(aroutines, ch)
-				chr=nil
-			end
 			yield()
 		end
 		p.srtn=nil
@@ -587,12 +563,15 @@ end
 
 function ai__steer(e, d)
 	local sspd = e.mot.steerspd+0.1
+	printh(d)
 	if d<0 then
-		e.mot.a=e.mot.oa
+		-- e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
 	elseif d>0 then
-		e.mot.a=e.mot.oa
+		-- e.mot.a=e.mot.oa
 		e.mot.ang-=sspd
+	elseif d==0 then
+		e.mot.ang+=0.5
 	end
 	
 	if (e.mot.ang>1) e.mot.ang=0
@@ -1051,7 +1030,7 @@ function draw_entity(e,i)
 		for d=0, e.animdelay do
 			ds()
 			yield()
-			if (e.sprtab ~= e.prev_tab) i=1 --printh('sprtab~=prev_tab: '..tbl_dump(e.sprtab))
+			if (e.sprtab ~= e.prev_tab) i=1
 			ds()
 		end
 	else
