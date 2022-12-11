@@ -399,25 +399,20 @@ function update_controls(p)
 	if (btn(0,p.pid)) then
 		if not p.td then
 			p.mot.dx-=p.mot.a 
-			-- p.sprflip=true
 			if (not btn(5,p.pid)) p.chdx=-10 
 		end
 	end
 	if (btn(1,p.pid)) then 
 		if not p.td then
 			p.mot.dx+=p.mot.a 
-			-- p.sprflip=false
 			if (not btn(5,p.pid)) p.chdx=10 
 		end
 	end
 	if (btn(2,p.pid)) then 
 		if not p.td then
 			p.mot.dy-=p.mot.a 
-			-- p.sprhflip=true
 			if (not btn(5,p.pid)) p.chdy=-10 
-
 		end
-
 	end
 	if (btn(3,p.pid)) then 
 		if not p.td then
