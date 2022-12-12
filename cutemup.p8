@@ -185,7 +185,6 @@ function create_bullet(_x,_y,_s,_a,_e)
 						sfx(4)
 						add(collided, e)
 						ai__steer(e,0)
-						printh(e.mot.ang)
 						if (#collided>_e.stats.pierce) clean_ent(b)
 						for k = 1,8 do
 							create_particle(e.pos.x+e.pos.w/2,e.pos.y+e.pos.h/2,randbi(0,1),a+rnd(0.125)-rnd(0.125),randbi(20,35),randbi(120,360),randbi(4,24),{8}, update_gravity_particle)
@@ -492,7 +491,25 @@ function create_dummy(_x, _y)
 	return p
 end
 
-function create_spawner(_x,_y,_type)
+function anim_bounce(p,_x,_y,_tx,_ty, _b,_tt)
+	local tt = _tt or randbi(15,20)
+	local b = _b or 3
+	for i = 1,b do
+		dx,dy = ballisticlaunchspeed(_x,_y,_x,_y,gravity_x,gravity_y,tt)
+		repeat
+			p.mot.dx,p.mot.dy=getposfromang(aget(_x,_y,_tx,_ty),dst_basic(_x,_y,_tx,_ty))
+
+			move_entity(p)
+			p.pos.zoff+=dy
+			dy+=gravity_y
+			yield()
+		until p.pos.zoff>=0
+		p.pos.zoff=0
+		dy=0
+		tt-=tt/b
+	end
+end
+function create_spawner(_x,_y,_type,_tx,_ty, _tt)
 	local p = create_ent({148,149,150,151,152,153}, -30, {
 		x=_x, --x
 		y=_y, --y,
@@ -500,37 +517,35 @@ function create_spawner(_x,_y,_type)
 		h=_h or 7,
 		zoff=-10
 	})
+
+	local tx = _tx or _x
+	local ty = _ty or _y
 	p.animdelay=2.2
 	local dx,dy=0,0
 	p.behavior=create_timer(function()
 		while ent_off_cam(p) do
 			yield()
 		end
-		local tt = randbi(20,30)
-		for i = 1,4 do
-			dx,dy = ballisticlaunchspeed(_x,_y,_x,_y,gravity_x,gravity_y,tt)
-			repeat
-				p.pos.zoff+=dy
-				dy+=gravity_y
-				yield()
-			until p.pos.zoff>=0
-			p.pos.zoff=0
-			dy=0
-			tt-=tt/4
-			if (i==2) yields(3) p.sprtab={154}
-		end
-		spawn_enemy(_x,_y-8,_type)
-		yields(120-tt)
+		anim_bounce(p,_x,_y,tx,ty)
+		yields(3) p.sprtab={154}
+		spawn_enemy(p.pos.x,p.pos.y-8,_type)
+		yields(120)
 		clean_ent(p)
 	end,1)
 	add(routines,p.behavior)
 end
 
 function spawn_enemy(_x,_y,_type)
+	local x,y=_x,_y
+	local can_spawn = false
+	if solid(x,y) then
+		y+=16
+	end
+	
 	if _type==1 then
-		create_wanderer(_x, _y)
+		create_wanderer(x, y)
 	elseif _type==2 then
-		create_wanderer(_x, _y,2,{80,82,84,82})
+		create_wanderer(x, y,2,{80,82,84,82})
 	end
 end
 
@@ -551,7 +566,7 @@ function create_wanderer(_x,_y, _type, _sprtab)
 	p.mot.mspd=0.28
 	p.animdelay=18
 	if _type==2 then
-		p.stats.hp=20
+		p.stats.hp=40
 		p.mot.mspd=0.35
 		p.mot.steerspd=0.065
 		p.animdelay=10
@@ -585,14 +600,29 @@ function create_wanderer(_x,_y, _type, _sprtab)
 	end,1,true)
 	if (_type==2) then
 		p.spawner = create_timer(function()
-			local x,y=p.pos.x,p.pos.y
+			local delay = randbi(80,180)
 			if not ent_off_cam(p) and p.act then
-				for i=0,200 do
+				for i=0,delay do
 					yield()
 				end
 				local a=p.mot.ang
-				-- create_wanderer(x+p.pos.w/2,y+p.pos.h/2, 1)
-				create_spawner(x+p.pos.w/2,y+p.pos.h/2, 1)
+				local x,y=p.pos.x,p.pos.y
+				local mspd = p.mot.mspd
+				local sprtab = p.sprtab
+				p.sprtab={82}
+				p.mot.mspd=0
+				yields(20)
+				local x,y=p.pos.x,p.pos.y
+				local tx,ty = getposfromang(oaget(p,p.targ),dst(p.targ,p)*2)
+				tx+=p.pos.x
+				ty+=p.pos.y
+				create_spawner(x+p.pos.w/2,y+p.pos.h/2, 1,tx,ty,40)
+				p.mot.mspd=mspd/2
+				anim_bounce(p,x,y,x,y,3,25)
+				p.mot.mspd=mspd
+
+				p.sprtab=sprtab
+				
 			end
 		end,1,true)
 		add(routines, p.spawner)
@@ -606,7 +636,6 @@ end
 
 function ai__steer(e, d)
 	local sspd = e.mot.steerspd+0.1
-	printh(d)
 	if d<0 then
 		-- e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
@@ -1186,9 +1215,9 @@ end
 
 function init_stage1()
 	music(0)
-	for i = 0,5 do
-		create_spawner(randbi(146,220), randbi(24,100),1)
-	end
+	-- for i = 0,5 do
+	-- 	create_spawner(randbi(146,220), randbi(24,100),1)
+	-- end
 	create_spawner(randbi(146,220), randbi(24,100),2)
 	create_dummy(64,64)
 	init_players()
