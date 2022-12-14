@@ -143,23 +143,22 @@ function init_players()
 			if (p.dying)  p.sprtab=pdying
 			if (p.dead) p.sprtab=pdead
 		end,1,true)
+		p.draw = create_timer(function()
+			if btn(5,p.pid) then
+				circ(p.chx,p.chy,1,10)
+				circ(p.chx,p.chy,4,8)
+			end
+		end,1,true)
+		add(aroutines, p.draw)
 		add(routines, p.logic)
 		add(players, p)
 		init_scoreboard(p)
 	end
 end
 
-function player_collide(self, e)
-	-- if e~=nil then
-	-- 	printh('collided with '..e.pid)
-	-- else
-	-- 	printh('collided with unknown object')
-	-- end
-end
-
 function create_bullet(_x,_y,_s,_a,_e)
 	local collided = {}
-	local dx,dy = cos(_a)*_s,sin(_a)*_s
+	local dx,dy = getposfromang(_a,_s)
 	local b = create_ent({}, -2, {x=_x,y=_y,w=1,h=1}, {
 		dx=dx, --dx
 		dy=dy, --dy,
@@ -173,7 +172,7 @@ function create_bullet(_x,_y,_s,_a,_e)
 		move_entity(b)
 		local bx,by = b.pos.x,b.pos.y
 		local a = aget(_x,_y,bx,by)
-		local ddx,ddy = cos(a)*(-_s*2), sin(a)*(-_s*2)
+		local ddx,ddy = getposfromang(a,-_s*2)
 		circfill(bx,by,1,1)
 
 		line(bx,by,bx+ddx,by+ddy,6)
@@ -185,17 +184,7 @@ function create_bullet(_x,_y,_s,_a,_e)
 						e.stats.hp-=1
 						sfx(4)
 						add(collided, e)
-						-- local spd = e.mot.mspd
-						-- add(routines,create_timer(function()
-						-- 	for i=0,2 do
-						-- 		e.mot.mspd=e.mot.mspd/1.1
-						-- 		printh('test')
-						-- 		yield()
-						-- 	end
-						-- 	e.mot.mspd=spd
-						-- end,1))
-						e.mot.ang+=0.5
-						printh(e.mot.ang)
+						ai__steer(e,0)
 						if (#collided>_e.stats.pierce) clean_ent(b)
 						for k = 1,8 do
 							create_particle(e.pos.x+e.pos.w/2,e.pos.y+e.pos.h/2,randbi(0,1),a+rnd(0.125)-rnd(0.125),randbi(20,35),randbi(120,360),randbi(4,24),{8}, update_gravity_particle)
@@ -278,17 +267,19 @@ function player_damframes(p, _f, _b)
 	local f = _f or 10
 	local blink = _b
 	if (blink==nil) blink = true
-	p.invinframes = create_timer(function()
-		for i=1,f do
-			if (blink) p.blink = not p.blink 
-			yields(5)
-		end
-		p.blink=false
-		del(routines,p.invinframes)
-		p.invinframes = nil
-		
-	end,1) 
-	add(routines,p.invinframes)
+	if p.invinframes==nil then
+		p.invinframes = create_timer(function()
+			for i=1,f do
+				if (blink) p.blink = not p.blink 
+				yields(5)
+			end
+			p.blink=false
+			del(routines,p.invinframes)
+			p.invinframes = nil
+			
+		end,1) 
+		add(routines,p.invinframes)
+	end
 end
 
 function player_takedam(p,e)
@@ -296,7 +287,7 @@ function player_takedam(p,e)
 		p.td=true
 		
 		local a = oaget(e,p)
-		local dx,dy = cos(a)*2, sin(a)*2
+		local dx,dy = getposfromang(a, 2)
 		if (p.stats.hp>0)p.stats.hp-=1
 		p.tdr = create_timer(function()
 			sfx(2)
@@ -323,9 +314,6 @@ function player_takedam(p,e)
 end
 
 function player_shoot(p)
-	
-	local chr = nil
-	
 	local r = create_timer(function()
 		local i=0
 		local x,y=0,0
@@ -336,25 +324,6 @@ function player_shoot(p)
 			i+=1
 			if (btn(5,p.pid) and i==p.shtdelay) i=0
 			if (i==p.shtdelay) break
-
-			if btn(5,p.pid) then
-				if chr==nil then
-					a = aget(x,y,x+p.mot.dx,y+p.mot.dy)
-					local ch = create_timer(function()
-						while btn(5, p.pid) and not p.dodging and not p.td do
-							circ(p.chx,p.chy,1,10)
-							circ(p.chx,p.chy,4,8)
-							yield()
-						end
-					end,1) 
-					add(aroutines, ch)
-					chr=ch
-
-				end
-			else
-				del(aroutines, ch)
-				chr=nil
-			end
 			yield()
 		end
 		p.srtn=nil
@@ -380,56 +349,57 @@ function check_respawn(p)
 end
 
 function update_controls(p)
-	if (not btn(0, p.pid) and not btn(1, p.pid)) and (btn(2, p.pid) or btn(3, p.pid)) and not btn(5,p.pid) then
+	local pid,a,td = p.pid,p.mot.a,p.td
+	if (not btn(0, pid) and not btn(1, pid)) and (btn(2, pid) or btn(3, pid)) and not btn(5,pid) then
 		p.chdx=0
 	else
-		if p.sprflip and not btn(5,p.pid)then
+		if p.sprflip and not btn(5,pid)then
 			p.chdx=-10
-		elseif not btn(5,p.pid) then
+		elseif not btn(5,pid) then
 			p.chdx=10
 		end
 	end
-	if not btn(2, p.pid) and not btn(3, p.pid) and not btn(5,p.pid) then
+	if not btn(2, pid) and not btn(3, pid) and not btn(5,pid) then
 		p.chdy=0
 	end
 	local ps = p.shooting
 	if p.mot.dy <=0.1 and p.mot.dy >= -0.1 and not ps then
 		p.sprhflip = false
 	end
-	if (btn(0,p.pid)) then
-		if not p.td then
-			p.mot.dx-=p.mot.a 
-			if (not btn(5,p.pid)) p.chdx=-10 
+	if (btn(0,pid)) then
+		if not td then
+			p.mot.dx-=a 
+			if (not btn(5,pid)) p.chdx=-10 
 		end
 	end
-	if (btn(1,p.pid)) then 
-		if not p.td then
-			p.mot.dx+=p.mot.a 
-			if (not btn(5,p.pid)) p.chdx=10 
+	if (btn(1,pid)) then 
+		if not td then
+			p.mot.dx+=a 
+			if (not btn(5,pid)) p.chdx=10 
 		end
 	end
-	if (btn(2,p.pid)) then 
-		if not p.td then
-			p.mot.dy-=p.mot.a 
-			if (not btn(5,p.pid)) p.chdy=-10 
+	if (btn(2,pid)) then 
+		if not td then
+			p.mot.dy-=a 
+			if (not btn(5,pid)) p.chdy=-10 
 		end
 	end
-	if (btn(3,p.pid)) then 
-		if not p.td then
-			p.mot.dy+=p.mot.a
-			if (not btn(5,p.pid)) p.chdy=10 
+	if (btn(3,pid)) then 
+		if not td then
+			p.mot.dy+=a
+			if (not btn(5,pid)) p.chdy=10 
 		end
 	end
 	
-	if btn(5, p.pid) then
+	if btn(5, pid) then
 		if p.srtn == nil then 
 			p.shooting=true
-			if (not p.dodging and not p.td) player_shoot(p)
+			if (not p.dodging and not td) player_shoot(p)
 		end
 	end
-	if (btn(4, p.pid)) then
+	if (btn(4, pid)) then
 		if not p.dodging and p.moving then
-			if (not p.td) player_dodge(p)
+			if (not td) player_dodge(p)
 		end
 		
 	end
@@ -466,17 +436,19 @@ end
 -- entity ai functions
 function ai__rotate_to_target(e) 
 	local t = e.targ
-	local ex,ey = e.pos.x+e.pos.w/2, e.pos.y+e.pos.h/2
-	local tx,ty = t.pos.x+t.pos.w/2, t.pos.y+t.pos.h/2
+	local a = e.mot.ang
+	local epos,tpos = e.pos,t.pos
+	local ex,ey = epos.x+epos.w/2, epos.y+epos.h/2
+	local tx,ty = tpos.x+tpos.w/2, tpos.y+tpos.h/2
 	-- angle code credits: https://www.gamedev.net/forums/topic/679527-rotate-towards-a-target-angle/ USER https://www.gamedev.net/draika-the-dragon/
 	local aim_ang=oaget(t,e)
 	if (not t.act) aim_ang=oaget(e,t)
 	local desiredanglem1=aim_ang-1
 	local desiredanglep1=aim_ang+1
 	
-	local dadiff=abs(aim_ang-e.mot.ang)
-	local dam1diff=abs(desiredanglem1-e.mot.ang)
-	local dap1diff=abs(desiredanglep1-e.mot.ang)
+	local dadiff=abs(aim_ang-a)
+	local dam1diff=abs(desiredanglem1-a)
+	local dap1diff=abs(desiredanglep1-a)
 	local closestuniverse=aim_ang
 	closestdifftozero=dadiff
 	if dam1diff<closestdifftozero then
@@ -519,6 +491,64 @@ function create_dummy(_x, _y)
 	return p
 end
 
+function anim_bounce(p,_x,_y,_tx,_ty, _b,_tt)
+	local tt = _tt or randbi(15,20)
+	local b = _b or 3
+	for i = 1,b do
+		dx,dy = ballisticlaunchspeed(_x,_y,_x,_y,gravity_x,gravity_y,tt)
+		repeat
+			p.mot.dx,p.mot.dy=getposfromang(aget(_x,_y,_tx,_ty),dst_basic(_x,_y,_tx,_ty))
+
+			move_entity(p)
+			p.pos.zoff+=dy
+			dy+=gravity_y
+			yield()
+		until p.pos.zoff>=0
+		p.pos.zoff=0
+		dy=0
+		tt-=tt/b
+	end
+end
+function create_spawner(_x,_y,_type,_tx,_ty, _tt)
+	local p = create_ent({148,149,150,151,152,153}, -30, {
+		x=_x, --x
+		y=_y, --y,
+		w=_w or 7,
+		h=_h or 7,
+		zoff=-10
+	})
+
+	local tx = _tx or _x
+	local ty = _ty or _y
+	p.animdelay=2.2
+	local dx,dy=0,0
+	p.behavior=create_timer(function()
+		while ent_off_cam(p) do
+			yield()
+		end
+		anim_bounce(p,_x,_y,tx,ty)
+		yields(3) p.sprtab={154}
+		spawn_enemy(p.pos.x,p.pos.y-8,_type)
+		yields(120)
+		clean_ent(p)
+	end,1)
+	add(routines,p.behavior)
+end
+
+function spawn_enemy(_x,_y,_type)
+	local x,y=_x,_y
+	local can_spawn = false
+	if solid(x,y) then
+		y+=16
+	end
+	
+	if _type==1 then
+		create_wanderer(x, y)
+	elseif _type==2 then
+		create_wanderer(x, y,2,{80,82,84,82})
+	end
+end
+
 function create_wanderer(_x,_y, _type, _sprtab)
 	local sprtab = _sprtab or {71,72,71,70}
 	local pid = 2
@@ -536,7 +566,7 @@ function create_wanderer(_x,_y, _type, _sprtab)
 	p.mot.mspd=0.28
 	p.animdelay=18
 	if _type==2 then
-		p.stats.hp=20
+		p.stats.hp=40
 		p.mot.mspd=0.35
 		p.mot.steerspd=0.065
 		p.animdelay=10
@@ -570,13 +600,29 @@ function create_wanderer(_x,_y, _type, _sprtab)
 	end,1,true)
 	if (_type==2) then
 		p.spawner = create_timer(function()
-			local x,y=p.pos.x,p.pos.y
+			local delay = randbi(80,180)
 			if not ent_off_cam(p) and p.act then
-				for i=0,150 do
+				for i=0,delay do
 					yield()
 				end
 				local a=p.mot.ang
-				create_wanderer(x+p.pos.w/2,y+p.pos.h/2, 1)
+				local x,y=p.pos.x,p.pos.y
+				local mspd = p.mot.mspd
+				local sprtab = p.sprtab
+				p.sprtab={82}
+				p.mot.mspd=0
+				yields(20)
+				local x,y=p.pos.x,p.pos.y
+				local tx,ty = getposfromang(oaget(p,p.targ),dst(p.targ,p)*2)
+				tx+=p.pos.x
+				ty+=p.pos.y
+				create_spawner(x+p.pos.w/2,y+p.pos.h/2, 1,tx,ty,40)
+				p.mot.mspd=mspd/2
+				anim_bounce(p,x,y,x,y,3,25)
+				p.mot.mspd=mspd
+
+				p.sprtab=sprtab
+				
 			end
 		end,1,true)
 		add(routines, p.spawner)
@@ -590,24 +636,18 @@ end
 
 function ai__steer(e, d)
 	local sspd = e.mot.steerspd+0.1
-	-- if d<-0.125 then
-	-- 	e.mot.a=e.mot.oa*1.5
-	-- 	e.mot.ang+=sspd
 	if d<0 then
-		e.mot.a=e.mot.oa
+		-- e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
-	-- elseif d>0.125 then
-	-- 	e.mot.a=e.mot.oa
-	-- 	e.mot.ang-=sspd*1.5
 	elseif d>0 then
-		e.mot.a=e.mot.oa
+		-- e.mot.a=e.mot.oa
 		e.mot.ang-=sspd
+	elseif d==0 then
+		e.mot.ang+=0.5
 	end
 	
 	if (e.mot.ang>1) e.mot.ang=0
 	if (e.mot.ang<0) e.mot.ang=0.999
-	-- yield()
-
 end
 
 function ai__pick_player_target(e)
@@ -627,7 +667,6 @@ function ai__path_to_players(e)
 	local r = 1
 	if (e.pid==3) r=1.5
 	for n=-0.25,0.25, 0.125 do -- draw 3 pixels. One in front, and one on each side
-		
 		tx=(e.pos.x+e.pos.w/2)-(cos(ang+n)*e.pos.w/r) -- define x for current pixel
 		ty=(e.pos.y+e.pos.h/2)-(sin(ang+n)*e.pos.h/r)+1 -- define y for current pixel
 		if solid(tx,ty) then
@@ -654,8 +693,7 @@ function ai__path_to_players(e)
 end
 
 function ai__move_to_target(ent)
-	ent.mot.dx=cos(ent.mot.ang)*-1
-	ent.mot.dy=sin(ent.mot.ang)*-1
+	ent.mot.dx,ent.mot.dy=getposfromang(ent.mot.ang,-1)
 end
 
 -->8
@@ -798,12 +836,6 @@ function getposfromang(a,_d)
 	return cos(a)*d, sin(a)*d
 end
 
-function blood_splatter(p)
-
-
-end
-
-
 function update_gravity_particle(p)
 	p.x+=p.dx
 	p.y+=p.dy
@@ -857,7 +889,7 @@ function create_particle(_x,_y,_r,_a,_tt,_lt,_s,_pal, _rtn)
 end
 
 function spawn_effect(_e)
-	local sprtab = {175,174,173,172,171,170,169,168,178,179,180,181,182,183,184,185}
+	local sprtab = {176,177,178,179,180,181,182,183,184,185}
 	local spri=1
 	local d = 0.10
 	_e.spawning=false
@@ -1057,10 +1089,11 @@ end
 function draw_entity(e,i)
 	local ds = function()
 		if e.act then
+			if (e.pos.zoff==nil)e.pos.zoff=0
 			local x,y,w,h = e.pos.x,e.pos.y,e.pos.w,e.pos.h
 			ovalfill(x,y+h,x+w,y+h+2,0)
 			if (#e.pal>0) swap_pal(e.pal)
-			spr(e.sprtab[i],e.pos.x, e.pos.y,ceil(e.pos.w/8),ceil(e.pos.h/8), e.sprflip)
+			spr(e.sprtab[i],x, y+e.pos.zoff,ceil(w/8),ceil(h/8), e.sprflip)
 			pal()
 			e.prev_tab = e.sprtab
 		end
@@ -1070,7 +1103,7 @@ function draw_entity(e,i)
 		for d=0, e.animdelay do
 			ds()
 			yield()
-			if (e.sprtab ~= e.prev_tab) i=1 --printh('sprtab~=prev_tab: '..tbl_dump(e.sprtab))
+			if (e.sprtab ~= e.prev_tab) i=1
 			ds()
 		end
 	else
@@ -1080,19 +1113,18 @@ end
 
 function move_entity(p)
 	p.context_show=false
-	
 
 	p.mot.dx=mid(-p.mot.mspd,p.mot.dx,p.mot.mspd)
 	p.mot.dy=mid(-p.mot.mspd,p.mot.dy,p.mot.mspd)
+	local dx,dy = p.mot.dx,p.mot.dy
 
 	wall_check(p)
 
-	if (can_move(p,p.mot.dx,p.mot.dy)) then
-		p.pos.x+=p.mot.dx
-		p.pos.y+=p.mot.dy
+	if (can_move(p,dx,dy)) then
+		p.pos.x+=dx
+		p.pos.y+=dy
 	else
-		tdx=p.mot.dx
-		tdy=p.mot.dy
+		tdx,tdy=p.mot.dx,p.mot.dy
 		while (not can_move(p,tdx,tdy)) do
 			if (abs(tdx)<=0.1) then
 				tdx=0
@@ -1105,19 +1137,18 @@ function move_entity(p)
 				tdy*=0.9
 			end
 			if tdx==0 and tdy==0 then
-				tdx=p.mot.dx*-1/10*0.9
-				tdy=p.mot.dy*-1/10*0.9
+				tdx=dx*-1/10*0.9
+				tdy=dy*-1/10*0.9
 				break
-
 			end
 		end
 		p.pos.x+=tdx
 		p.pos.y+=tdy
 	end 
-	if (abs(p.mot.dx)>0) p.mot.dx*=p.mot.drg
-	if (abs(p.mot.dy)>0) p.mot.dy*=p.mot.drg
-	if (abs(p.mot.dx)<0.01) p.mot.dx=0
-	if (abs(p.mot.dy)<0.01) p.mot.dy=0
+	if (abs(dx)>0) p.mot.dx*=p.mot.drg
+	if (abs(dy)>0) p.mot.dy*=p.mot.drg
+	if (abs(dx)<0.01) p.mot.dx=0
+	if (abs(dy)<0.01) p.mot.dy=0
 
 	pi=3.14
 end
@@ -1137,41 +1168,42 @@ function init_scoreboard(p)
 		p.sx,p.sy = cament.pos.x+ox,cament.pos.y
 	end,1,true)
 	local r = create_timer(function()
-		local sx,sy = cament.pos.x+ox,cament.pos.y
+		
+		local sx,sy = p.sx,p.sy
 		local lives = p.stats.lives
-		rectfill(p.sx, p.sy, p.sx+60,p.sy+14, sc)
-		rect(p.sx-1, p.sy, p.sx+61,p.sy+14, 13)
+		rectfill(sx, sy, sx+60,sy+14, sc)
+		rect(sx-1, sy, sx+61,sy+14, 13)
 		if p.act then
 			local shp=158
 			local sox=1
 			for i=1,p.stats.max_hp do
 				if (i>p.stats.hp) shp=159
-				spr(shp,p.sx+sox,p.sy+2)
+				spr(shp,sx+sox,sy+2)
 				sox+=6
 			end
 			sox=0
 			for i=1,5 do
-				print('웃',p.sx+sox, p.sy+8,1)
+				print('웃',sx+sox, sy+8,1)
 				sox+=6
 			end
 			sox=0
 			for i=1,lives do
 				if (i>5)break
 				if (i>p.stats.hp) shp=159
-				print('웃',p.sx+sox, p.sy+8,7)
+				print('웃',sx+sox, sy+8,7)
 				sox+=6
 			end
 			local ammo = p.stats.ammo
 			if (p.stats.stype==1) ammo="○"
-			spr(189,p.sx+32,p.sy+2)
-			spr(190,p.sx+31,p.sy+8)
-			print(":"..p.stats.coin,p.sx+38, p.sy+2,1)
-			print(":"..ammo,p.sx+38, p.sy+8,1)
+			spr(189,sx+32,sy+2)
+			spr(190,sx+31,sy+8)
+			print(":"..p.stats.coin,sx+38, sy+2,1)
+			print(":"..ammo,sx+38, sy+8,1)
 		else
 			if lives <1 then
-				hor_wave_print("game over",p.sx+8,p.sy+5,7,2,t(),1.5) 
+				hor_wave_print("game over",sx+8,sy+5,7,2,t(),1.5) 
 			else
-				hor_wave_print("🅾️  to join!",p.sx+6,p.sy+5,7,2,t(),1.5) 
+				hor_wave_print("🅾️  to join!",sx+6,sy+5,7,2,t(),1.5) 
 			end
 		end
 		
@@ -1183,10 +1215,10 @@ end
 
 function init_stage1()
 	music(0)
-	for i=1, max_ents do
-		create_wanderer(randbi(146,220), randbi(24,100))
-	end
-	create_wanderer(randbi(146,220), randbi(24,100),2,{80,82,84,82})
+	-- for i = 0,5 do
+	-- 	create_spawner(randbi(146,220), randbi(24,100),1)
+	-- end
+	create_spawner(randbi(146,220), randbi(24,100),2)
 	create_dummy(64,64)
 	init_players()
 	players[2].act=false
@@ -1218,12 +1250,10 @@ end
 	
 function move_camera(newx,_newy, ie,ae)
 	newy = _newy or cament.pos.y
-	local dx,dy = 0,0
 	cament.moving = true
 	local tdst=2
-	local a = aget(newx,newy,cament.pos.x,cament.pos.y)
-	dx-=cos(a)
-	dy-=sin(a)
+	local a = aget(newx,newy,cament.pos.x,cament.pos.y)+.5
+	local dx,dy = getposfromang(a)
 	local newr = create_timer(function()
 		while tdst>1 do
 			tdst = dst_basic(newx,newy,cament.pos.x,cament.pos.y)
@@ -1247,7 +1277,7 @@ function move_camera(newx,_newy, ie,ae)
 end
 
 function update_camera()
-	local p1p,cpos = players[1].pos,cament.pos
+	local p1p,cx,cy = players[1].pos,cament.pos.x,cament.pos.y
 	local ie,ae
 	for p in all(players) do
 		if ent_off_cam(p) then
@@ -1259,19 +1289,19 @@ function update_camera()
 	end
 	local x,y,w,h = p1p.x,p1p.y,p1p.w,p1p.h
 	if not cament.moving then
-		if x < cpos.x then
-			move_camera(cpos.x-128,cpos.y, ie, ae)
-		elseif x+w > cpos.x+127 then
-			move_camera(cpos.x+128,cpos.y, ie, ae)
+		if x < cx then
+			move_camera(cx-128,cy, ie, ae)
+		elseif x+w > cx+127 then
+			move_camera(cx+128,cy, ie, ae)
 		end
 
-		if y < cpos.y then
-			move_camera(cpos.x,cpos.y-128, ie, ae)
-		elseif y+h > cpos.y+127 then
-			move_camera(cpos.x,cpos.y+128, ie, ae)
+		if y < cy then
+			move_camera(cx,cy-128, ie, ae)
+		elseif y+h > cy+127 then
+			move_camera(cx,cy+128, ie, ae)
 		end
 	end
-	camera(cpos.x,cpos.y)
+	camera(cx,cy)
 end
 
 -->8
@@ -1376,18 +1406,21 @@ function check_collision(e)
 end
 
 function draw_coll_box(coll_box)
-    line(coll_box.cx_l,coll_box.cy_t,coll_box.cx_r,coll_box.cy_t,3)
-    line(coll_box.cx_l,coll_box.cy_b,coll_box.cx_r,coll_box.cy_b,14)
-    line(coll_box.cx_l,coll_box.cy_t,coll_box.cx_l,coll_box.cy_b,12)
-    line(coll_box.cx_r,coll_box.cy_t,coll_box.cx_r,coll_box.cy_b,2)
+	local cl,cr,ct,cb = coll_box.cx_l,coll_box.cx_r,coll_box.cy_t,coll_box.cy_b
+    line(cl,ct,cr,ct,3)
+    line(cl,cb,cr,cb,14)
+    line(cl,ct,cl,cb,12)
+    line(cr,ct,cr,cb,2)
 
 end
 
 function update_coll_box(e)
-    e.coll_box.cx_l = e.pos.x + e.coll_box.cx
-    e.coll_box.cx_r = e.pos.x + e.coll_box.cx + e.coll_box.cw
-    e.coll_box.cy_t = e.pos.y + e.coll_box.cy
-    e.coll_box.cy_b = e.pos.y + e.coll_box.cy + e.coll_box.ch
+	local cb = e.coll_box
+
+    cb.cx_l = e.pos.x + cb.cx
+    cb.cx_r = e.pos.x + cb.cx + cb.cw
+    cb.cy_t = e.pos.y + cb.cy
+    cb.cy_b = e.pos.y + cb.cy + cb.ch
 end
 
 function can_move(a,dx,dy)
@@ -1429,29 +1462,30 @@ function solid(x,y)
 end
 
 function wall_check(a)
-	if (a.mot.dx<0) then
-		local wall_top_left=solid(a.pos.x-1,a.pos.y)
-		local wall_btm_left=solid(a.pos.x-1,a.pos.y+a.pos.h)
+	local x,y,w,h,dx,dy = a.pos.x,a.pos.y,a.pos.w,a.pos.h,a.mot.dx,a.mot.dy
+	if (dx<0) then
+		local wall_top_left=solid(x-1,y)
+		local wall_btm_left=solid(x-1,y+h)
 		if (wall_top_left or wall_btm_left) then
 			a.mot.dx=0
 		end
-	elseif (a.mot.dx>0) then
-		local wall_top_right=solid(a.pos.x+a.pos.w+1,a.pos.y)
-		local wall_btm_right=solid(a.pos.x+a.pos.w+1,a.pos.y+a.pos.h)
+	elseif (dx>0) then
+		local wall_top_right=solid(x+w+1,y)
+		local wall_btm_right=solid(x+w+1,y+h)
 	if (wall_top_right or wall_btm_right) then
 		a.mot.dx=0
 	end
 end
 
-	if (a.mot.dy<0) then
-		local wall_top_left=solid(a.pos.x,a.pos.y-1)
-		local wall_top_right=solid(a.pos.x+a.pos.w,a.pos.y-1)
+	if (dy<0) then
+		local wall_top_left=solid(x,y-1)
+		local wall_top_right=solid(x+w,y-1)
 		if (wall_top_left or wall_top_right) then
 			a.mot.dy=0
 		end
-	elseif (a.mot.dy>0) then
-			local wall_btm_left=solid(a.pos.x,a.pos.y+a.pos.h+1)
-			local wall_btm_right=solid(a.pos.x+a.pos.w,a.pos.y+a.pos.h+1)
+	elseif (dy>0) then
+			local wall_btm_left=solid(x,y+h+1)
+			local wall_btm_right=solid(x+w,y+h+1)
 		if (wall_btm_right or wall_btm_left) then
 			a.mot.dy=0
 		end
@@ -1522,30 +1556,30 @@ ddd6c7201dd6c720166cc720ddd6cc101cc6cc101dd6cc1043744674476446744764473400700700
 555555556d576d57d576d576555555551f9229911f9229911f9229911f8888911f66669118888991166669910000000000000000000000000000000000000000
 011001005555555555555555001001101f2992911f2992911f2992911f8888911f66669118888891166666910000000000000000000000000000000000000000
 11100110011001101100001101100111111111111111111111111111111111111111111111111111111111110000000000000000000000000000000000000000
-02202200002020000002000000202000022022000020200000020000002020000220220000202000000200000020200001101100001010000001000000101000
-27828820027282000022200002827200278211200272120000222000021272002112112002121200002220000212120012111110012111000011100001112100
-28888820028882000082800002888200288811200288120000128000021882002171812002171200001210000217120011111110011111000011100001111100
-28888820028882000082800002888200288811200281120000128000021182002188812002181200008280000218120011111110011111000011100001111100
-12888210012821000082800001282100128812100121210000128000012121001218121001282100008280000128210011111110011111000011100001111100
-01282100002820000082800000282000012821000021200000128000002120000121210000212000001210000021200001111100001110000011100000111000
-00121000001210000021200000121000001210000012100000212000001210000012100000121000002120000012100000111000001110000011100000111000
-00010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000000100000001000000010000
-0022220000022000000220000002200000111100000110000001100000011000001110000011100000111000001110000007a900144444410101000002020000
-0277772000277200002772000027720001eeee10001ee100001ee100001ee10000171000001b10000017100000171000000a22004ffffff21718100021212000
-27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e10001b10000017100000171000001710000007a9004f1111f21888100021112000
-27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e1001b7b10001b7b10001b7b10001bbb100000a22004ffffff20181000002120000
-27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e10137bb310137bb31013bbb310137bb310007aaa004f11f1f20010000000200000
-27aaaa92027aa920002aa200029aa7201e88882101e882100018810001288e1013bb331013bb331013bb331013bb3310092222904ffffff20000000000000000
-02999920002992000029920000299200012222100012210000122100001221001333331013333310133333101333331002999920122222210000000000000000
-00222200000220000002200000022000001111000001100000011000000110000111110001111100011111000111110000222200000420000000000000000000
-00000000000700000000000000000000000000000000000000000000000000000000000000008000000080000000800000008000000080000000800000008000
-78000000008880000000087000000000000000000000000000000000000000000000000000008000000080000008780000087800000878000000800000000000
-87000000000700000000078000000000000000000000000000000000000000000000000000087800000878000008780000087800000080000000000000000000
-0070000000070000000070000000000000000000000000d000000d0d000000000000800000087800000878000008780000008000000000000000000000000000
-006600000066600000066000000000000000000000000d0d00006000000000000008880000087800000878000000800000008000000000000000000000000000
-007d7000007d7000007d70000000000000060d00000060d00000000d000000000008780000087800000878000000800000008000000000000000000000000000
-44676440446764404467644006000000006060000006060d00006060000000000008780008887888000080000000800000000000000000000000000000000000
-42222240422222404222224077600000777606000777606000770000000000000088888000888880080080080000800000000000000000000000000000000000
+02202200002020000002000000202000111111111111111111111111111111111111111111111111111111110011110000011000000110000001100011111111
+278288200272820000222000028272001f7771f117771ff11771ff71171ff77111ff77711ff777111f2221f101eeee10001ee100001ee100001ee100ff1ffff1
+288888200288820000828000028882001f717191171719911171997117199711119971711f9717111f2121411e88882101e882100018810001288e10f41f4441
+288888200288820000828000028882001f117191111719911171991117199111119911711f9117111f1121411e88882101e882100018810001288e10f41f4441
+128882100128210000828000012821001f9711911f7119911711999111199971119997111f9971111f4211411e88882101e882100018810001288e1011111111
+012821000028200000828000002820001f9119911f11999111199991119999111f9991111f9911911f4114411e88882101e882100018810001288e10fff1ff1f
+001210000012100000212000001210001f9719911f71999117199991119999711f9997111f9971911f421441012222100012210000122100001221004441f41f
+0001000000010000000100000001000011111111111111111111111111111111111111111111111111111111001111000001100000011000000110004441f41f
+0022220000022000000220000002200011111111111111111111111111111111111111111111111111111111000000000007a900144444410101000002020000
+027777200027720000277200002772001ff777111f7771f117771ff11771ff71171ff77111ff77711ff2221100000000000a22004ffffff21718100021212000
+27aaaa92027aa920002aa200029aa7201f9711111f711191171119911111997111199711119971111f421111000000000007a9004f1111f21888100021112000
+27aaaa92027aa920002aa200029aa7201f9777111f777191177719911771997117199771119977711f42221100000000000a22004ffffff20181000002120000
+27aaaa92027aa920002aa200029aa7201f9711111f711191171119911111997111199711119971111f42111100000000007aaa004f11f1f20010000000200000
+27aaaa92027aa920002aa200029aa7201f77771117777191177719711771977117197771119777711f22221100000000092222904ffffff20000000000000000
+029999200029920000299200002992001f77771117777191177719711771977117197771119777711f2222110000000002999920122222210000000000000000
+00222200000220000002200000022000111111111111111111111111111111111111111111111111111111110000000000222200000420000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000111000001110000011100000111000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000171000001b10000017100000171000
+000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001b1000001710000017100000171000
+0000000000000000000000d000000d0d0000000d0000000000000000000000000000000000000000000000000000000001b7b10001b7b10001b7b10001bbb100
+000000000000000000000d0d000060000000006000000000000000000000000000000000000000000000000000000000137bb310137bb31013bbb310137bb310
+0000000000060d00000060d00000000d000000000000000000000000000000000000000000000000000000000000000013bb331013bb331013bb331013bb3310
+06000000006060000006060d00006060000000000000000000000000000000000000000000000000000000000000000013333310133333101333331013333310
+77600000777606000777606000770000000700000000000000000000000000000000000000000000000000000000000001111100011111000111110001111100
 00000000000000000000000000000000000550000077770000055000000550000005000000000000009000000000000000000000001000000111100000000000
 009aa900002882000000000000055000055dd55007777770055dd550055d0000055000000000000009a9000000a0000000000000017100001dddd10000000000
 09a77a900287f82000055000005dd50005d66d507777777705d6005005d0000005000000000000009a7a90000a7a00000070000017a910001d61100000000000
@@ -1718,7 +1752,7 @@ e000e0e0eee0ee00eee0000000000000000000000000000000000000000000000000000000000000
 
 __gff__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000010000010000000000000000010101010100000000010101000000000000000000
-0000000000000000000000000000000100000000000001000000000000000000000001000000000000000001010101010000000001010100000000000000000000000000000000000000000000000000000000000000010101000001010101010000000000000101010001010101010100000000000001010100010101010000
+0000000000000000000000000001000000000000000000010101010000000000000000000000000001010101000000000000000001010100000000000000000000000000000000000000000000000000000000000000010101000001010101010000000000000101010001010101010100000000000001010100010101010000
 __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
