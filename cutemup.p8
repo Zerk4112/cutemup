@@ -12,7 +12,6 @@ function _init()
 	mchunks = {}
 	printh('~~~~~~~~PROG INIT~~~~~~')
 	menuitem(1,"toggle debug", function() debug = not debug end)
-	menuitem(2,"toggle player 2", function() local p2=players[2] p2.pos.x = players[1].pos.x p2.pos.y = players[1].pos.y p2.act=not p2.act end)
 	init_scenes()
 	max_ents=2
 	aroutines={}
@@ -57,7 +56,6 @@ function _draw()
 	else
 		manage_routines(drigs)
 	end
-	-- manage_routines(drigs)
 	manage_routines(aroutines)
 	for e in all(entities) do
 		if (e.act and debug) draw_coll_box(e.coll_box)
@@ -470,23 +468,7 @@ function ai__rotate_to_target(e)
 
 end
 
-function create_dummy(_x, _y)
 
-	local p = create_ent({106}, 4, {
-		x=_x, --x
-		y=_y, --y,
-		w=_w or 7,
-		h=_h or 7
-	})
-	p.coll_box=create_coll_box(-1, 2, 9, 8)
-	p.stats.hp=999
-	p.behavior=create_timer(function()
-		update_coll_box(p)
-		check_collision(p)
-	end,1,true)
-	add(routines, p.behavior)
-	return p
-end
 
 function anim_bounce(p,_x,_y,_tx,_ty, _b,_tt)
 	local tt = _tt or randbi(15,20)
@@ -506,31 +488,7 @@ function anim_bounce(p,_x,_y,_tx,_ty, _b,_tt)
 		tt-=tt/b
 	end
 end
-function create_spawner(_x,_y,_type,_tx,_ty, _tt)
-	local p = create_ent({148,149,150,151,152,153}, -30, {
-		x=_x, --x
-		y=_y, --y,
-		w=_w or 7,
-		h=_h or 7,
-		zoff=-10
-	})
 
-	local tx = _tx or _x
-	local ty = _ty or _y
-	p.animdelay=2.2
-	local dx,dy=0,0
-	p.behavior=create_timer(function()
-		while ent_off_cam(p) do
-			yield()
-		end
-		anim_bounce(p,_x,_y,tx,ty)
-		yields(3) p.sprtab={154}
-		spawn_enemy(p.pos.x,p.pos.y-8,_type)
-		yields(120)
-		clean_ent(p)
-	end,1)
-	add(routines,p.behavior)
-end
 
 function spawn_enemy(_x,_y,_type)
 	local x,y=_x,_y
@@ -545,109 +503,13 @@ function spawn_enemy(_x,_y,_type)
 	end
 end
 
-function create_tracker(_x,_y)
-
-
-end
-
-function create_holder(_x,_y)
-
-end
-
-function create_bird(_x,_y)
-
-
-end
-
-function create_zomb(_x,_y)
-
-
-end
-
-function create_wanderer(_x,_y, _type, _sprtab)
-	local sprtab = _sprtab or {71,72,71,70}
-	local pid = 2
-	if (_type==2) pid=3
-	-- local sprtab = _sprtab or {112,113,114,115}
-	local p = create_ent(sprtab, pid, {
-		x=_x, --x
-		y=_y, --y,
-		w=_w or 7,
-		h=_h or 7
-	})
-	p.act=false
-	p.spawning=true
-	p.coll_box=create_coll_box(-1, 2, 9, 8)
-	p.mot.mspd=0.28
-	p.animdelay=18
-	if _type==2 then
-		p.stats.hp=40
-		p.mot.mspd=0.35
-		p.mot.steerspd=0.065
-		p.animdelay=10
-		p.pos.w=15
-		p.pos.h=15
-		p.coll_box=create_coll_box(1, 5, 13, 13)
+function hurt_player(cb, e, p) 
+	if e.pid <2 then
+		if (not e.dying and not e.dead and not debug)player_takedam(e,p)
 	end
-	
-	p.coll_box.coll_callback = function(cb, e) 
-		if e.pid <2 then
-			if (not e.dying and not e.dead and not debug)player_takedam(e,p)
-		end
-	end
-	p.behavior=create_timer(function()
-		if not ent_off_cam(p) and p.act then
-			update_coll_box(p)
-			check_collision(p)
-			ai__move_to_target(p)
-			move_entity(p)
-		elseif not ent_off_cam(p) and not p.act then
-			if (p.spawning) spawn_effect(p)
-		end
-	end,1,true)
-	p.pathing = create_timer(function()
-		if not ent_off_cam(p) and p.act then
-			p.targ=ai__pick_player_target(p)
-			ai__rotate_to_target(p)
-			ai__path_to_players(p)
-			-- if (debug) print(p.mot.ang..":"..p.mot.steerspd,p.pos.x-2,p.pos.y-8)
-		end
-	end,1,true)
-	if (_type==2) then
-		p.spawner = create_timer(function()
-			local delay = randbi(80,180)
-			if not ent_off_cam(p) and p.act then
-				for i=0,delay do
-					yield()
-				end
-				local a=p.mot.ang
-				local x,y=p.pos.x,p.pos.y
-				local mspd = p.mot.mspd
-				local sprtab = p.sprtab
-				p.sprtab={82}
-				p.mot.mspd=0
-				yields(20)
-				local x,y=p.pos.x,p.pos.y
-				local tx,ty = getposfromang(oaget(p,p.targ),dst(p.targ,p)*2)
-				tx+=p.pos.x
-				ty+=p.pos.y
-				create_spawner(x+p.pos.w/2,y+p.pos.h/2, 1,tx,ty,40)
-				p.mot.mspd=mspd/2
-				anim_bounce(p,x,y,x,y,3,25)
-				p.mot.mspd=mspd
-
-				p.sprtab=sprtab
-				
-			end
-		end,1,true)
-		add(routines, p.spawner)
-	end
-	add(routines, p.behavior)
-	add(aroutines, p.pathing)
-	-- add(entities, p)
-	ents+=1
-	return p
 end
+
+
 
 function ai__steer(e, d)
 	local sspd = e.mot.steerspd+0.1
@@ -709,6 +571,167 @@ end
 
 function ai__move_to_target(ent)
 	ent.mot.dx,ent.mot.dy=getposfromang(ent.mot.ang,-1)
+end
+-->8
+-- enemy functions
+function create_spawner(_x,_y,_type,_tx,_ty, _tt)
+	local p = create_ent({148,149,150,151,152,153}, -30)
+	p.pos.x,p.pos.y,p.pos.zoff=_x,_y,-10
+	local tx = _tx or _x
+	local ty = _ty or _y
+	p.animdelay=2.2
+	local dx,dy=0,0
+	p.behavior=create_timer(function()
+		while ent_off_cam(p) do
+			yield()
+		end
+		anim_bounce(p,_x,_y,tx,ty)
+		yields(3) p.sprtab={154}
+		spawn_enemy(p.pos.x,p.pos.y-8,_type)
+		yields(120)
+		clean_ent(p)
+	end,1)
+	add(routines,p.behavior)
+end
+
+function create_dummy(_x, _y)
+
+	local p = create_ent({106}, 4)
+	p.pos.x,p.pos.y=_x,_y
+	p.coll_box=create_coll_box(-1, 2, 9, 8)
+	p.stats.hp=999
+	p.behavior=create_timer(function()
+		update_coll_box(p)
+		check_collision(p)
+	end,1,true)
+	add(routines, p.behavior)
+	return p
+end
+
+function create_tracker(_x,_y)
+	if (_type==2) pid=3
+	-- local sprtab = _sprtab or {112,113,114,115}
+	local p = create_ent(sprtab, pid)
+	p.pos.x,p.pos.y=_x,_y
+	p.act=false
+	p.spawning=true
+	p.coll_box=create_coll_box(-1, 2, 9, 8)
+	p.mot.mspd=0.28
+	p.animdelay=18
+	
+	p.coll_box.coll_callback = hurt_player
+	p.behavior=create_timer(function()
+		if not ent_off_cam(p) and p.act then
+			update_coll_box(p)
+			check_collision(p)
+			ai__move_to_target(p)
+			move_entity(p)
+		elseif not ent_off_cam(p) and not p.act then
+			if (p.spawning) spawn_effect(p)
+		end
+	end,1,true)
+	p.pathing = create_timer(function()
+		if not ent_off_cam(p) and p.act then
+			p.targ=ai__pick_player_target(p)
+			ai__rotate_to_target(p)
+			ai__path_to_players(p)
+		end
+	end,1,true)
+	add(routines, p.behavior)
+	add(aroutines, p.pathing)
+	ents+=1
+	return p
+end
+
+function create_holder(_x,_y)
+
+end
+
+function create_bird(_x,_y)
+
+
+end
+
+function create_zomb(_x,_y)
+
+
+end
+
+function create_wanderer(_x,_y, _type, _sprtab)
+	local sprtab = _sprtab or {71,72,71,70}
+	local pid = 2
+	if (_type==2) pid=3
+	-- local sprtab = _sprtab or {112,113,114,115}
+	local p = create_ent(sprtab, pid)
+	p.pos.x,p.pos.y=_x,_y
+	p.act=false
+	p.spawning=true
+	p.coll_box=create_coll_box(-1, 2, 9, 8)
+	p.mot.mspd=0.28
+	p.animdelay=18
+	if _type==2 then
+		p.stats.hp=40
+		p.mot.mspd=0.35
+		p.mot.steerspd=0.065
+		p.animdelay=10
+		p.pos.w=15
+		p.pos.h=15
+		p.coll_box=create_coll_box(1, 5, 13, 13)
+	end
+	
+	p.coll_box.coll_callback = hurt_player
+	p.behavior=create_timer(function()
+		if not ent_off_cam(p) and p.act then
+			update_coll_box(p)
+			check_collision(p)
+			ai__move_to_target(p)
+			move_entity(p)
+		elseif not ent_off_cam(p) and not p.act then
+			if (p.spawning) spawn_effect(p)
+		end
+	end,1,true)
+	p.pathing = create_timer(function()
+		if not ent_off_cam(p) and p.act then
+			p.targ=ai__pick_player_target(p)
+			ai__rotate_to_target(p)
+			ai__path_to_players(p)
+			-- if (debug) print(p.mot.ang..":"..p.mot.steerspd,p.pos.x-2,p.pos.y-8)
+		end
+	end,1,true)
+	if (_type==2) then
+		p.spawner = create_timer(function()
+			local delay = randbi(80,180)
+			if not ent_off_cam(p) and p.act then
+				for i=0,delay do
+					yield()
+				end
+				local a=p.mot.ang
+				local x,y=p.pos.x,p.pos.y
+				local mspd = p.mot.mspd
+				local sprtab = p.sprtab
+				p.sprtab={82}
+				p.mot.mspd=0
+				yields(20)
+				local x,y=p.pos.x,p.pos.y
+				local tx,ty = getposfromang(oaget(p,p.targ),dst(p.targ,p)*2)
+				tx+=p.pos.x
+				ty+=p.pos.y
+				create_spawner(x+p.pos.w/2,y+p.pos.h/2, 1,tx,ty,40)
+				p.mot.mspd=mspd/2
+				anim_bounce(p,x,y,x,y,3,25)
+				p.mot.mspd=mspd
+
+				p.sprtab=sprtab
+				
+			end
+		end,1,true)
+		add(routines, p.spawner)
+	end
+	add(routines, p.behavior)
+	add(aroutines, p.pathing)
+	-- add(entities, p)
+	ents+=1
+	return p
 end
 
 -->8
@@ -887,12 +910,10 @@ function create_particle(_x,_y,_r,_a,_tt,_lt,_s,_pal, _rtn)
 	local np = create_timer(function()
 		
 		repeat
-		-- while lifetime~=p.l do
 			circfill(p.x,p.y,p.r,p.pal[p.pi])
 			p:update(p)
 			traveltime+=1
 			yield()
-		-- end
 		until traveltime==p.tt
 		for lt=0,p.lt do
 			circfill(p.x,p.y,p.r,p.pal[p.pi])
@@ -1412,7 +1433,7 @@ function check_collision(e)
 		if tar.act==true and e.act==true and tar.pid~=e.pid then
 			if tar.coll_box~=nil then
 				if simple_coll_check(e.coll_box, tar.coll_box) then
-						e.coll_box:coll_callback(tar)
+						e.coll_box:coll_callback(tar, e)
 				end
 			end
 		end
