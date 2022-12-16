@@ -105,7 +105,7 @@ function init_players()
 		p.chx,p.chy=0,0
 		if (i==1)add(p.pal, {9,12})
 		p.logic = create_timer(function()
-			
+			update_coll_box(p)
 			if p.mot.dx<-0.1 or p.mot.dy < -0.1 or p.mot.dx > 0.1 or p.mot.dy > 0.1 then
 				p.moving=true
 				if p.shooting then
@@ -285,7 +285,6 @@ end
 function player_takedam(p,e)
 	if not p.td and p.invinframes==nil then
 		p.td=true
-		
 		local a = oaget(e,p)
 		local dx,dy = getposfromang(a, 2)
 		if (p.stats.hp>0)p.stats.hp-=1
@@ -306,11 +305,9 @@ function player_takedam(p,e)
 			p.shooting=false
 			p.dodging=false
 			if (p.stats.hp==0) player_death(p)
-			
 		end,1) 
 		add(routines, p.tdr)
 	end
-	
 end
 
 function player_shoot(p)
@@ -537,7 +534,6 @@ end
 
 function spawn_enemy(_x,_y,_type)
 	local x,y=_x,_y
-	local can_spawn = false
 	if solid(x,y) then
 		y+=16
 	end
@@ -547,6 +543,25 @@ function spawn_enemy(_x,_y,_type)
 	elseif _type==2 then
 		create_wanderer(x, y,2,{80,82,84,82})
 	end
+end
+
+function create_tracker(_x,_y)
+
+
+end
+
+function create_holder(_x,_y)
+
+end
+
+function create_bird(_x,_y)
+
+
+end
+
+function create_zomb(_x,_y)
+
+
 end
 
 function create_wanderer(_x,_y, _type, _sprtab)
@@ -1232,7 +1247,7 @@ end
 function update_stage1()
 	if not scene_switch then
 		for i, p in pairs(players) do
-			update_coll_box(p)
+
 			if p.act then 
 				if (not p.dying and not p.dead) update_controls(p)
 				if (not cament.moving) move_entity(p) 
@@ -1416,11 +1431,12 @@ end
 
 function update_coll_box(e)
 	local cb = e.coll_box
-
-    cb.cx_l = e.pos.x + cb.cx
-    cb.cx_r = e.pos.x + cb.cx + cb.cw
-    cb.cy_t = e.pos.y + cb.cy
-    cb.cy_b = e.pos.y + cb.cy + cb.ch
+	local pos = e.pos
+	local zoff = pos.zoff or 0
+    cb.cx_l = pos.x + cb.cx
+    cb.cx_r = pos.x + cb.cx + cb.cw
+    cb.cy_t = pos.y+zoff + cb.cy
+    cb.cy_b = pos.y+zoff + cb.cy + cb.ch
 end
 
 function can_move(a,dx,dy)
@@ -1806,6 +1822,8 @@ __sfx__
 010d00200c1350c1350c1350c1550c1300c1350c1350c1350c1350c1350c1350c135111351113210135101320a1350a1350a1350a1350a1300a1350a1350a1350913509135091350913511135111350c1350c135
 010d00000213502135021350213502135021350513505135021350213502135021350213502135071350713502135021350213502135021350213505135051350010000100001350013001135011320113201132
 010d00000213502135021350213502135021350513505135021350213502135021350213502135071350713502135021350213502135021350213505135051350010007130081320913209132091320913209132
+1d14000005050050501005505051050520505217522185220c0500c05010051100521100015512185221752209050090500905010051100520c0520c0521c51211054110521105210055100500e0510e05221512
+0114001011053040030660012653026003e600110533e6003e6000000012653110530000012653000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 01 1a211244
 00 1a221344
@@ -1821,4 +1839,8 @@ __music__
 00 1b1e4344
 00 1b1f5744
 02 1b205844
+00 41424344
+00 41424344
+03 23244344
+00 01424344
 
