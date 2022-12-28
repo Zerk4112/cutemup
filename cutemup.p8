@@ -161,11 +161,14 @@ function create_bullet(_x,_y,_s,_a,_e)
 		dx=dx, --dx
 		dy=dy, --dy,
 		a=1,
-		mspd=_s,
+		mspd=3,
 		drg=1,
 		ang=_a
 	})
+	b.p=_e
+	b.coll_box=create_coll_box(-2, -2, 4, 4)
 	b.behavior = create_timer(function()
+		update_coll_box(b)
 		local entshot = false
 		move_entity(b)
 		local bx,by = b.pos.x,b.pos.y
@@ -182,7 +185,8 @@ function create_bullet(_x,_y,_s,_a,_e)
 						e.stats.hp-=1
 						sfx(4)
 						add(collided, e)
-						ai__steer(e,0)
+						if (e.pid~=5) ai__steer(e,0)
+						if (e.pid==5)setmadtime(e) e.targ=_e
 						if (#collided>_e.stats.pierce) clean_ent(b)
 						for k = 1,8 do
 							create_particle(e.pos.x+e.pos.w/2,e.pos.y+e.pos.h/2,randbi(0,1),a+rnd(0.125)-rnd(0.125),randbi(20,35),randbi(120,360),randbi(4,24),{8}, update_gravity_particle)
@@ -262,7 +266,7 @@ function player_death(p)
 end
 
 function player_damframes(p, _f, _b)
-	local f = _f or 10
+	local f = _f or 20
 	local blink = _b
 	if (blink==nil) blink = true
 	if p.invinframes==nil then
@@ -432,12 +436,23 @@ end
 function ai__rotate_to_target(e) 
 	local t = e.targ
 	local a = e.mot.ang
-	local epos,tpos = e.pos,t.pos
+	local epos = e.pos
+	local tpos
+	local tact
+	if e.targ == nil then
+		tpos = {x=e.pos.x+randbi(-24,24),y=e.pos.y+randbi(-24,24),w=7,h=7}
+		tact = false
+		t={pos=tpos}
+	else
+		tact=t.act
+		tpos=t.pos
+	end
+
 	local ex,ey = epos.x+epos.w/2, epos.y+epos.h/2
 	local tx,ty = tpos.x+tpos.w/2, tpos.y+tpos.h/2
 	-- angle code credits: https://www.gamedev.net/forums/topic/679527-rotate-towards-a-target-angle/ USER https://www.gamedev.net/draika-the-dragon/
 	local aim_ang=oaget(t,e)
-	if (not t.act) aim_ang=oaget(e,t)
+	if (not tact) aim_ang=oaget(e,t)
 	local desiredanglem1=aim_ang-1
 	local desiredanglep1=aim_ang+1
 	
@@ -500,31 +515,89 @@ function spawn_enemy(_x,_y,_type)
 		create_wanderer(x, y)
 	elseif _type==2 then
 		create_wanderer(x, y,2,{80,82,84,82})
+	elseif _type==3 then
+		create_tracker(x,y)
 	end
+	yield()
 end
 
 function hurt_player(cb, e, p) 
-	if e.pid <2 then
+	if e.pid ==0 or e.pid==1 then
 		if (not e.dying and not e.dead and not debug)player_takedam(e,p)
 	end
 end
 
 
 
-function ai__steer(e, d)
-	local sspd = e.mot.steerspd+0.1
+function ai__steer(e, d,_sspd, _nut)
+	local sspd = _sspd or e.mot.steerspd
+	local nut = _nut or false
+	printh("nut:"..tostr(nut))
 	if d<0 then
 		-- e.mot.a=e.mot.oa
 		e.mot.ang+=sspd
 	elseif d>0 then
 		-- e.mot.a=e.mot.oa
 		e.mot.ang-=sspd
-	elseif d==0 then
+	elseif d==0 and not nut then
 		e.mot.ang+=0.5
 	end
 	
 	if (e.mot.ang>1) e.mot.ang=0
 	if (e.mot.ang<0) e.mot.ang=0.999
+end
+
+function setmadtime(e)
+	if e.madtime == nil then
+		e.madtime = create_timer(function()
+			e.mot.mspd=0.65
+			e.mad=true
+			yields(90)
+			e.mot.mspd=0.25
+			e.madtime=nil
+			e.mad=false
+			yields(120)
+			-- e.targ=nil
+		end)
+		add(routines, e.madtime)
+	end
+
+end
+
+function ai__pick_seen_or_rand_targ(e)
+	
+	for n=-0.08,0.08,0.04 do
+		for i=1,5,0.3 do
+			local col = 7
+			tx=(e.pos.x+e.pos.w/2)-(cos(e.mot.ang+n)*e.pos.w/1*i) -- define x for current pixel
+			ty=(e.pos.y+e.pos.h/2)-(sin(e.mot.ang+n)*e.pos.h/1*i)+1 -- define y for current pixel
+			if solid(tx,ty) and i==1 then
+				ai__steer(e,n) -- steer function to turn enemy away from walls
+					col=10
+			end
+			
+			for p in all(entities) do
+				local coll_check = check_pos_collision(tx,ty, p.coll_box)
+				if coll_check and p.act and (p.pid==0 or p.pid==1) then
+					col=8
+					e.targ=p
+					setmadtime(e)
+				elseif coll_check and p.pid==-2 then
+					if e.targ~=nil and e.madtime~=nil then 
+						ai__steer(e,n,0.22, true)
+					else
+						e.targ=p.p
+					end
+				elseif coll_check and p.pid>2 and i<3 then
+					ai__steer(e,n,0.1)
+				end
+			end
+			if (debug) pset(tx,ty,col) 
+		end
+	end
+	-- if targ==nil then
+	-- 	if (e.targ ~=nil) return e.targ
+	-- end
 end
 
 function ai__pick_player_target(e)
@@ -550,7 +623,7 @@ function ai__path_to_players(e)
 			ai__steer(e,n*1.5) -- steer function to turn enemy away from walls
 		end
 		-- pset(tx,ty,col)
-		yield() -- yield processing back to main loop
+		-- yield() -- yield processing back to main loop
 		for i, ent in pairs(entities) do -- loop through entities to see if any are colliding with path pixel
 
 			if e ~= ent and ent.pid>1 then -- If the entity is another enemy, then continue
@@ -609,18 +682,33 @@ function create_dummy(_x, _y)
 end
 
 function create_tracker(_x,_y)
-	if (_type==2) pid=3
-	-- local sprtab = _sprtab or {112,113,114,115}
-	local p = create_ent(sprtab, pid)
+	
+	-- local sprtab = {112,113,114,115}
+	local sprtab = {116}
+	local p = create_ent(sprtab, 5)
 	p.pos.x,p.pos.y=_x,_y
 	p.act=false
 	p.spawning=true
-	p.coll_box=create_coll_box(-1, 2, 9, 8)
-	p.mot.mspd=0.28
-	p.animdelay=18
-	
+	p.coll_box=create_coll_box(0, 0, 7, 7)
+	p.mot.mspd=0.25
+	p.stats.hp=10
+	-- p.animdelay=0
+	p.mad = false
 	p.coll_box.coll_callback = hurt_player
 	p.behavior=create_timer(function()
+		if not p.mad then
+			if p.mot.dx<0 then
+				p.sprtab={117}
+			else
+				p.sprtab={118}
+			end
+		else
+			if p.mot.dx<0 then
+				p.sprtab={121}
+			else
+				p.sprtab={104}
+			end
+		end
 		if not ent_off_cam(p) and p.act then
 			update_coll_box(p)
 			check_collision(p)
@@ -632,9 +720,10 @@ function create_tracker(_x,_y)
 	end,1,true)
 	p.pathing = create_timer(function()
 		if not ent_off_cam(p) and p.act then
-			p.targ=ai__pick_player_target(p)
+			ai__pick_seen_or_rand_targ(p)
 			ai__rotate_to_target(p)
-			ai__path_to_players(p)
+			-- print("targ: "..tostr(p.targ),p.pos.x-4,p.pos.y-8,7)
+			yields(2)
 		end
 	end,1,true)
 	add(routines, p.behavior)
@@ -670,7 +759,7 @@ function create_wanderer(_x,_y, _type, _sprtab)
 	p.mot.mspd=0.28
 	p.animdelay=18
 	if _type==2 then
-		p.stats.hp=40
+		p.stats.hp=15
 		p.mot.mspd=0.35
 		p.mot.steerspd=0.065
 		p.animdelay=10
@@ -694,17 +783,18 @@ function create_wanderer(_x,_y, _type, _sprtab)
 		if not ent_off_cam(p) and p.act then
 			p.targ=ai__pick_player_target(p)
 			ai__rotate_to_target(p)
-			ai__path_to_players(p)
+			if (pid==2) ai__path_to_players(p)
 			-- if (debug) print(p.mot.ang..":"..p.mot.steerspd,p.pos.x-2,p.pos.y-8)
 		end
 	end,1,true)
 	if (_type==2) then
 		p.spawner = create_timer(function()
-			local delay = randbi(80,180)
+			local delay = randbi(120,270)
 			if not ent_off_cam(p) and p.act then
-				for i=0,delay do
-					yield()
-				end
+				-- for i=0,delay do
+				-- 	yield()
+				-- end
+				yields(delay)
 				local a=p.mot.ang
 				local x,y=p.pos.x,p.pos.y
 				local mspd = p.mot.mspd
@@ -1105,7 +1195,7 @@ function create_ent(_sprtab, _pid, _pos, _mot, _coll_box, _pal)
 		},
 		chdx=10,
 		chdy=0,
-		coll_box = _coll_box or create_coll_box(2, 6, 4, 4, function()  end)
+		coll_box = _coll_box or create_coll_box(2, 4, 4, 4, function()  end)
 	}
 	
 	e.mot.oa=e.mot.a
@@ -1255,6 +1345,9 @@ function init_stage1()
 	-- 	create_spawner(randbi(146,220), randbi(24,100),1)
 	-- end
 	create_spawner(randbi(146,220), randbi(24,100),2)
+	create_spawner(randbi(146,220), randbi(24,100),3)
+	create_spawner(randbi(146,220), randbi(24,100),3)
+
 	create_dummy(64,64)
 	init_players()
 	players[2].act=false
